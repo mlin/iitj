@@ -172,7 +172,7 @@ public class IntegerIntervalTree implements java.io.Serializable {
         }
         assert indexNodes[nIndexNodes - 1] == n;
 
-        // Compute maxEnds througout each implict tree; for the index nodes themselves; the maxEnd
+        // Compute maxEnds througout each implict tree; for the index nodes themselves, the maxEnd
         // is the greater of its own end position and the maxEnd of the subsequent tree.
         for (int which_i = 0; which_i < indexNodes.length - 1; which_i++) {
             int i = indexNodes[which_i];
@@ -444,7 +444,7 @@ public class IntegerIntervalTree implements java.io.Serializable {
                         return;
                     }
                 }
-                // search the adjacent tree, formed by the slice from (i+1) until the next index
+                // search the subsequent tree, formed by the slice from (i+1) until the next index
                 // node. The root is in the middle at an offset calculable from the tree size (=
                 // slice length).
                 int n_i = indexNodes[which_i + 1] - i; // n_i is a power of two
