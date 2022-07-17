@@ -11,7 +11,7 @@ While designed for general purposes, our original motivation was to use in [Apac
 
 **Data structure layout.** First review the original design of [cgranges](https://github.com/lh3/cgranges), perhaps informed by [our notes on it](https://github.com/mlin/iitii/blob/master/notes_on_cgranges.md).
 
-cgranges has to handle a few complications in the typical case that its implicit binary tree isn't full & complete (that is, the stored item count *N* isn't exactly a power of two minus one). Instead of treating the entire sorted array as one incomplete tree, we decompose it into a concatenation of full & complete trees, as suggested by [Brodal, Fagerberg & Jacob (2001) §3.3](https://tidsskrift.dk/brics/article/download/21696/19132). Write *N* as a sum of powers of two, e.g. *N* = 12345 = 8192 + 4096 + 32 + 16 + 8 + 1, then interpret each corresponding slice of the array as a full & complete search tree (plus one extra "index node").
+cgranges has a few complications to handle in the typical case that its implicit binary tree isn't full & complete (that is, the stored item count *N* isn't exactly a power of two minus one). Instead of treating the entire sorted array as one incomplete tree, we decompose it into a concatenation of full & complete trees, as suggested by [Brodal, Fagerberg & Jacob (2001) §3.3](https://tidsskrift.dk/brics/article/download/21696/19132). Write *N* as a sum of powers of two, e.g. *N* = 12345 = 8192 + 4096 + 32 + 16 + 8 + 1, then interpret each corresponding slice of the array as a full & complete search tree (plus one extra "index node").
 
 The code for this solution isn't much simpler than cgranges, but it seems easier to explain conceptually.
 
