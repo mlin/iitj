@@ -99,8 +99,23 @@ public class ShortIntervalTree implements java.io.Serializable {
         }
     }
 
+    // We store the interval begin positions, end positions, and augmentation values (maxEnds) in
+    // separate arrays to keep them unboxed. These arrays each correspond to the intervals sorted
+    // by begin position then by end position.
     private final short[] begs, ends, maxEnds;
-    private final int[] indexNodes, permute;
+    // If the intervals weren't originally provided to the builder in the same sorted order, then
+    // permute stores their original IDs. Otherwise permute is null and the IDs are the indexes
+    // in the above sorted arrays.
+    private final int[] permute;
+    // We can view any N, the number of intervals stored, as a sum of powers of 2, and the above
+    // arrays as a concatenation of slices, each one of these powers of 2 in length. The leftmost
+    // item in each slice is the "index node", and the 2^p-1 remaining items (for some 0<=p<32)
+    // are an implicit binary search tree as in Li's cgranges. These trees are full & complete by
+    // construction, which avoids the need for workarounds cgranges has for when that's not so.
+    //
+    // indexNodes provides the array offsets for the index nodes in ascending order. The first
+    // element is always zero and a last element equal to N is appended as a convenience.
+    private final int[] indexNodes;
 
     private ShortIntervalTree(Builder builder) {
         final int n = builder.n;
@@ -144,20 +159,21 @@ public class ShortIntervalTree implements java.io.Serializable {
         int nIndexNodes = 1;
 
         int nRem = n;
-        while (nRem > 0) {
+        while (nRem > 0) { // for each binary one digit in N
             int p2 = Integer.highestOneBit(nRem);
-            assert p2 > 0;
+            assert p2 > 0 && Integer.bitCount(p2) == 1;
             indexNodesTmp[nIndexNodes] = p2 + indexNodesTmp[nIndexNodes - 1];
             nIndexNodes++;
             nRem &= ~p2;
         }
-        assert indexNodesTmp[nIndexNodes - 1] == n;
         indexNodes = new int[nIndexNodes];
         for (int i = 0; i < nIndexNodes; i++) {
             indexNodes[i] = indexNodesTmp[i];
         }
+        assert indexNodes[nIndexNodes - 1] == n;
 
-        // compute maxEnds
+        // Compute maxEnds througout each implict tree; for the index nodes themselves; the maxEnd
+        // is the greater of its own end position and the maxEnd of the subsequent tree.
         for (int which_i = 0; which_i < indexNodes.length - 1; which_i++) {
             int i = indexNodes[which_i];
             int n_i = indexNodes[which_i + 1] - i;
@@ -400,6 +416,7 @@ public class ShortIntervalTree implements java.io.Serializable {
     }
 
     private void recurseMaxEnds(int ofs, int node, int lvl) {
+        // compute interval tree augmentation values for the subtree rooted at (ofs+node)
         // TODO: should be faster to replace recursion with stepping through levels, as in cgranges
         Short maxEnd = ends[ofs + node];
         if (lvl > 0) {
@@ -416,17 +433,21 @@ public class ShortIntervalTree implements java.io.Serializable {
     }
 
     private void queryOverlapInternal(short queryBeg, short queryEnd, IntPredicate callback) {
+        // for each index node
         for (int which_i = 0; which_i < indexNodes.length - 1; which_i++) {
             int i = indexNodes[which_i];
             if (begs[i] >= queryEnd) {
-                break;
-            } else if (maxEnds[i] > queryBeg) {
-                if (ends[i] > queryBeg) {
+                break; // whole remainder of the beg-sorted array must be irrelevant
+            } else if (maxEnds[i] > queryBeg) { // slice has relevant item(s)
+                if (ends[i] > queryBeg) { // index node is a hit itself, return it first
                     if (!callback.test(i)) {
                         return;
                     }
                 }
-                int n_i = indexNodes[which_i + 1] - i;
+                // search the adjacent tree, formed by the slice from (i+1) until the next index
+                // node. The root is in the middle at an offset calculable from the tree size (=
+                // slice length).
+                int n_i = indexNodes[which_i + 1] - i; // n_i is a power of two
                 if (n_i > 1) {
                     int root = rootNode(n_i - 1);
                     recurseQuery(queryBeg, queryEnd, i + 1, root, nodeLevel(root), callback);
@@ -439,20 +460,20 @@ public class ShortIntervalTree implements java.io.Serializable {
             short queryBeg, short queryEnd, int ofs, int node, int lvl, IntPredicate callback) {
         // TODO: unroll traversal of bottom few levels
         int i = ofs + node;
-        if (maxEnds[i] > queryBeg) {
-            if (lvl > 0) {
+        if (maxEnds[i] > queryBeg) { // subtree rooted here may have relevant item(s)
+            if (lvl > 0) { // search left subtree
                 if (!recurseQuery(
                         queryBeg, queryEnd, ofs, nodeLeftChild(node, lvl), lvl - 1, callback)) {
                     return false;
                 }
             }
-            if (begs[i] < queryEnd) {
-                if (ends[i] > queryBeg) {
+            if (begs[i] < queryEnd) { // root or right subtree may include relevant item(s)
+                if (ends[i] > queryBeg) { // current root overlaps
                     if (!callback.test(i)) {
                         return false;
                     }
                 }
-                if (lvl > 0) {
+                if (lvl > 0) { // search right subtree
                     if (!recurseQuery(
                             queryBeg,
                             queryEnd,
@@ -467,6 +488,8 @@ public class ShortIntervalTree implements java.io.Serializable {
         }
         return true;
     }
+
+    // cgranges node rank calculations
 
     private static int nodeLevel(int node) {
         return Integer.numberOfTrailingZeros(~node);
