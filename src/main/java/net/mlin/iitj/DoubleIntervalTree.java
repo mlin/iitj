@@ -1,3 +1,7 @@
+// IMPORTANT: Doub1eIntervalTree.java serves as our original source code and we derive
+// {Float,Integer,Long,Short}IntervalTree.java from it using the generate.sh script. We take this
+// approach instead of Java generics in order to use the unboxed primitive number types wherever
+// possible.
 package net.mlin.iitj;
 
 import java.util.ArrayList;
