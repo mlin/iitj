@@ -1,24 +1,40 @@
 package net.mlin.iitj;
 
 import java.util.ArrayList;
-import java.util.function.Function;
+import java.util.function.IntPredicate;
+import java.util.function.Predicate;
 
 /**
- * Data structure for storing double [begin, end) intervals and answering requests for all items
- * overlapping a query interval. The structure is relatively memory-efficient and serializable, but
- * read-only once built.
+ * Data structure storing [double begin, double end) intervals and answering requests for those
+ * overlapping a query interval. Each stored interval is associated with an integer equal to the
+ * order in which it was added (zero-based).
+ *
+ * <p>The index is memory-efficient and serializable, but read-only once built.
  */
 public class DoubleIntervalTree implements java.io.Serializable {
+
+    /** Builder storing items to be stored in a DoubleIntervalTree */
     public static class Builder {
         private int n;
         private double[] begs, ends;
-        private Object[] objs;
+        private boolean sorted;
 
         public Builder() {
             reset();
         }
 
-        public void add(double beg, double end, Object tag) {
+        /**
+         * Add one [beg, end) interval to be stored. The positions are "half-open" such that two
+         * intervals with coincident end and begin positions are abutting, but not overlapping. The
+         * same interval may be stored multiple times. Adding the intervals in sorted order, by
+         * begin position then end position, will save time and space (but isn't required).
+         *
+         * @param beg interval begin position (inclusive)
+         * @param end interval end position (exclusive)
+         * @return An ID for the added interval, equal to the number of intervals added before this
+         *     one.
+         */
+        public int add(double beg, double end) {
             if (beg > end) {
                 throw new IllegalArgumentException();
             }
@@ -28,39 +44,44 @@ public class DoubleIntervalTree implements java.io.Serializable {
             }
             begs[n] = beg;
             ends[n] = end;
-            if (tag != null) {
-                if (objs == null) {
-                    objs = new Object[begs.length];
-                }
-                objs[n] = tag;
+            if (sorted
+                    && n > 0
+                    && (begs[n] < begs[n - 1]
+                            || (begs[n] == begs[n - 1] && ends[n] < ends[n - 1]))) {
+                sorted = false;
             }
-            n++;
+            return n++;
         }
 
-        public void add(double beg, double end) {
-            add(beg, end, null);
+        /**
+         * Return true iff intervals have so far been added in sorted order, by begin position then
+         * end position. This isn't required, but improves time and space needs.
+         */
+        public boolean isSorted() {
+            return sorted;
         }
 
+        /**
+         * Build the DoubleIntervalTree from previously stored intervals. After this the Builder
+         * object is reset to an empty state.
+         */
         public DoubleIntervalTree build() {
-            DoubleIntervalTree ans = new DoubleIntervalTree(this);
-            reset();
-            return ans;
+            return new DoubleIntervalTree(this);
         }
 
         private void reset() {
             n = 0;
             begs = new double[16];
             ends = new double[begs.length];
-            objs = null;
+            sorted = true;
         }
 
         private void grow() {
             long capacity = begs.length;
             if (capacity == Integer.MAX_VALUE) {
-                throw new UnsupportedOperationException("ImplicitIntervalTree capacity overflow");
+                throw new UnsupportedOperationException("DoubleIntervalTree capacity overflow");
             }
             assert ends.length == capacity;
-            assert objs == null || objs.length == capacity;
             capacity = (capacity * 3L) / 2L;
             if (capacity > Integer.MAX_VALUE) {
                 capacity = Integer.MAX_VALUE;
@@ -75,57 +96,54 @@ public class DoubleIntervalTree implements java.io.Serializable {
                 tmp[i] = ends[i];
             }
             ends = tmp;
-            if (objs != null) {
-                Object[] obj2 = new Object[(int) capacity];
-                for (int i = 0; i < n; i++) {
-                    obj2[i] = objs[i];
-                }
-                objs = obj2;
-            }
         }
     }
 
     private final double[] begs, ends, maxEnds;
-    private final Object[] objs;
-    private final int[] indexNodes;
+    private final int[] indexNodes, permute;
 
-    public DoubleIntervalTree(Builder builder) {
-        // compute sorting permutation of builder intervals
+    private DoubleIntervalTree(Builder builder) {
+        final int n = builder.n;
+        begs = new double[n];
+        ends = new double[n];
+        maxEnds = new double[n];
+
+        // compute sorting permutation of builder intervals, if needed, then copy the data in
         // https://stackoverflow.com/a/25778783
-        int[] permute =
-                java.util.stream.IntStream.range(0, builder.n)
-                        .mapToObj(i -> Integer.valueOf(i))
-                        .sorted(
-                                (i1, i2) -> {
-                                    int c = Double.compare(builder.begs[i1], builder.begs[i2]);
-                                    if (c != 0) {
-                                        return c;
-                                    }
-                                    return Double.compare(builder.ends[i1], builder.ends[i2]);
-                                })
-                        .mapToInt(value -> value.intValue())
-                        .toArray();
+        if (!builder.isSorted()) {
+            permute =
+                    java.util.stream.IntStream.range(0, builder.n)
+                            .mapToObj(i -> Integer.valueOf(i))
+                            .sorted(
+                                    (i1, i2) -> {
+                                        int c = Double.compare(builder.begs[i1], builder.begs[i2]);
+                                        if (c != 0) {
+                                            return c;
+                                        }
+                                        return Double.compare(builder.ends[i1], builder.ends[i2]);
+                                    })
+                            .mapToInt(value -> value.intValue())
+                            .toArray();
 
-        // copy sorted intervals into this
-        begs = new double[builder.n];
-        ends = new double[builder.n];
-        maxEnds = new double[builder.n];
-        objs = builder.objs != null ? new Object[builder.n] : null;
-
-        for (int i = 0; i < builder.n; i++) {
-            begs[i] = builder.begs[permute[i]];
-            ends[i] = builder.ends[permute[i]];
-            if (objs != null) {
-                objs[i] = builder.objs[permute[i]];
+            for (int i = 0; i < builder.n; i++) {
+                begs[i] = builder.begs[permute[i]];
+                ends[i] = builder.ends[permute[i]];
             }
+        } else {
+            for (int i = 0; i < builder.n; i++) {
+                begs[i] = builder.begs[i];
+                ends[i] = builder.ends[i];
+            }
+            permute = null;
         }
+        builder.reset();
 
         // compute index nodes
         int[] indexNodesTmp = new int[31];
         indexNodesTmp[0] = 0;
         int nIndexNodes = 1;
 
-        int nRem = builder.n;
+        int nRem = n;
         while (nRem > 0) {
             int p2 = Integer.highestOneBit(nRem);
             assert p2 > 0;
@@ -133,7 +151,7 @@ public class DoubleIntervalTree implements java.io.Serializable {
             nIndexNodes++;
             nRem &= ~p2;
         }
-        assert indexNodesTmp[nIndexNodes - 1] == builder.n;
+        assert indexNodesTmp[nIndexNodes - 1] == n;
         indexNodes = new int[nIndexNodes];
         for (int i = 0; i < nIndexNodes; i++) {
             indexNodes[i] = indexNodesTmp[i];
@@ -159,7 +177,7 @@ public class DoubleIntervalTree implements java.io.Serializable {
         int n = begs.length;
         assert ends.length == n;
         assert maxEnds.length == n;
-        assert objs == null || objs.length == n;
+        assert permute == null || permute.length == n;
 
         for (int i = 0; i < n; i++) {
             assert ends[i] >= begs[i];
@@ -170,132 +188,215 @@ public class DoubleIntervalTree implements java.io.Serializable {
                     assert begs[i] > begs[i - 1];
                 }
             }
-            assert maxEnds[i] >= ends[i];
+            assert maxEnds[i] >= ends[i]
+                    : String.valueOf(maxEnds[i])
+                            + "<"
+                            + String.valueOf(ends[i])
+                            + "@"
+                            + String.valueOf(i);
         }
     }
 
+    /** @return Total number of intervals stored. */
     public int size() {
         return begs.length;
     }
 
+    /** Result from a query, an interval and its ID as returned by Builder.add() */
     public static class QueryResult {
         public final double beg;
         public final double end;
-        public final Object obj;
+        public final int id;
 
-        public QueryResult(double beg, double end, Object obj) {
+        public QueryResult(double beg, double end, int id) {
             this.beg = beg;
             this.end = end;
-            this.obj = obj;
+            this.id = id;
         }
 
         public String toString() {
             // for debugging
-            String ans =
-                    "[" + (new Double(beg)).toString() + "," + (new Double(end)).toString() + ")";
-            if (obj != null) {
-                ans += "=" + obj.toString();
-            }
-            return ans;
+            return "["
+                    + String.valueOf(beg)
+                    + ","
+                    + String.valueOf(end)
+                    + ")="
+                    + String.valueOf(id);
         }
 
         @Override
         public boolean equals(Object rhso) {
             if (rhso instanceof QueryResult) {
                 QueryResult rhs = (QueryResult) rhso;
-                return beg == rhs.beg
-                        && end == rhs.end
-                        && (obj != null ? obj.equals(rhs.obj) : rhs.obj == null);
+                return beg == rhs.beg && end == rhs.end && id == rhs.id;
             }
             return false;
         }
     }
 
-    public void queryOverlap(
-            Double queryBeg, Double queryEnd, Function<QueryResult, Boolean> callback) {
-        for (int which_i = 0; which_i < indexNodes.length - 1; which_i++) {
-            int i = indexNodes[which_i];
-            if (begs[i] >= queryEnd) {
-                break;
-            } else if (maxEnds[i] > queryBeg) {
-                if (ends[i] > queryBeg) {
-                    Boolean stop =
-                            callback.apply(
-                                    new QueryResult(
-                                            begs[i], ends[i], objs != null ? objs[i] : null));
-                    if (stop != null && stop != false) {
-                        return;
-                    }
-                }
-                int n_i = indexNodes[which_i + 1] - i;
-                if (n_i > 1) {
-                    int root = rootNode(n_i - 1);
-                    recurseQuery(queryBeg, queryEnd, i + 1, root, nodeLevel(root), callback);
-                }
-            }
-        }
+    /**
+     * Query for all stored intervals overlapping the given interval.
+     *
+     * @param queryBeg Query interval begin position (inclusive)
+     * @param queryEnd Query interval end position (exclusive). A stored interval whose begin
+     *     position equals the query end position is considered abutting, but NOT overlapping the
+     *     query, so would not be returned.
+     * @param callback Function to be called for each query result. The function may return true to
+     *     continue the query, or false to stop immediately.
+     */
+    public void queryOverlap(double queryBeg, double queryEnd, Predicate<QueryResult> callback) {
+        queryOverlapInternal(
+                queryBeg,
+                queryEnd,
+                i ->
+                        callback.test(
+                                new QueryResult(
+                                        begs[i], ends[i], permute != null ? permute[i] : i)));
     }
 
-    public java.util.List<QueryResult> queryOverlap(Double queryBeg, Double queryEnd) {
+    /**
+     * Query for all stored intervals overlapping the given interval.
+     *
+     * @param queryBeg Query interval begin position (inclusive)
+     * @param queryEnd Query interval end position (exclusive). A stored interval whose begin
+     *     position equals the query end position is considered abutting, but NOT overlapping the
+     *     query, so would not be returned.
+     * @return Materialized list of all the results.
+     */
+    public java.util.List<QueryResult> queryOverlap(double queryBeg, double queryEnd) {
         ArrayList<QueryResult> results = new ArrayList<QueryResult>();
         queryOverlap(
                 queryBeg,
                 queryEnd,
                 x -> {
                     results.add(x);
-                    return null;
+                    return true;
                 });
         return results;
     }
 
-    public QueryResult queryAnyOverlap(Double queryBeg, Double queryEnd) {
-        QueryResult[] ans = {null};
+    /**
+     * Query for all stored intervals overlapping the given interval, optimized for callers that
+     * only need the ID of each result (as returned by Builder.add()).
+     *
+     * @param queryBeg Query interval begin position (inclusive)
+     * @param queryEnd Query interval end position (exclusive). A stored interval whose begin
+     *     position equals the query end position is considered abutting, but NOT overlapping the
+     *     query, so would not be returned.
+     * @param callback Function to be called for each query result ID. The function may return true
+     *     to continue the query, or false to stop immediately.
+     */
+    public void queryOverlapId(double queryBeg, double queryEnd, IntPredicate callback) {
+        queryOverlapInternal(
+                queryBeg, queryEnd, i -> callback.test(permute != null ? permute[i] : i));
+    }
+
+    /**
+     * Query for any one stored interval overlapping the given interval.
+     *
+     * @param queryBeg Query interval begin position (inclusive)
+     * @param queryEnd Query interval end position (exclusive). A stored interval whose begin
+     *     position equals the query end position is considered abutting, but NOT overlapping the
+     *     query, so would not be returned.
+     * @return null if there are no overlapping intervals stored.
+     */
+    public QueryResult queryAnyOverlap(double queryBeg, double queryEnd) {
+        QueryResult[] box = {null};
         queryOverlap(
                 queryBeg,
                 queryEnd,
                 x -> {
-                    ans[0] = x;
-                    return true;
+                    box[0] = x;
+                    return false;
                 });
-        return ans[0];
+        return box[0];
     }
 
-    public boolean queryOverlapExists(Double queryBeg, Double queryEnd) {
-        return queryAnyOverlap(queryBeg, queryEnd) != null;
-    }
-
-    public void queryExact(
-            Double queryBeg, Double queryEnd, Function<QueryResult, Boolean> callback) {
-        // TODO: replace with simple binary search in the beg-sorted array
-        queryOverlap(
+    /**
+     * Return any one ID of a stored interval overlapping the given interval.
+     *
+     * @param queryBeg Query interval begin position (inclusive)
+     * @param queryEnd Query interval end position (exclusive). A stored interval whose begin
+     *     position equals the query end position is considered abutting, but NOT overlapping the
+     *     query, so would not be returned.
+     * @return -1 if there are no overlapping intervals stored.
+     */
+    public int queryAnyOverlapId(double queryBeg, double queryEnd) {
+        int[] box = {-1};
+        queryOverlapId(
                 queryBeg,
                 queryEnd,
-                res -> {
-                    if (res.beg == queryBeg && res.end == queryEnd) {
-                        return callback.apply(res);
+                i -> {
+                    box[0] = i;
+                    return false;
+                });
+        return box[0];
+    }
+
+    /**
+     * Query whether there exists any stored interval overlapping the given interval.
+     *
+     * @param queryBeg Query interval begin position (inclusive)
+     * @param queryEnd Query interval end position (exclusive). A stored interval whose begin
+     *     position equals the query end position is considered abutting, but NOT overlapping the
+     *     query, so would not qualify.
+     */
+    public boolean queryOverlapExists(double queryBeg, double queryEnd) {
+        return queryAnyOverlapId(queryBeg, queryEnd) >= 0;
+    }
+
+    /**
+     * Query for all stored intervals exactly equalling the given interval.
+     *
+     * @param callback @see queryOverlapId
+     */
+    public void queryExactId(double queryBeg, double queryEnd, IntPredicate callback) {
+        // TODO: replace with simple binary search in the beg-sorted array
+        queryOverlapInternal(
+                queryBeg,
+                queryEnd,
+                i -> {
+                    if (begs[i] == queryBeg && ends[i] == queryEnd) {
+                        return callback.test(permute != null ? permute[i] : i);
                     }
                     return true;
                 });
     }
 
-    public QueryResult queryAnyExact(Double queryBeg, Double queryEnd) {
-        QueryResult[] ans = {null};
-        queryExact(
+    /**
+     * Query for any one ID of a stored interval exactly equalling the given interval.
+     *
+     * @return -1 if there are no equal intervals stored.
+     */
+    public int queryAnyExactId(double queryBeg, double queryEnd) {
+        int[] box = {-1};
+        queryExactId(
                 queryBeg,
                 queryEnd,
-                x -> {
-                    ans[0] = x;
-                    return true;
+                i -> {
+                    box[0] = i;
+                    return false;
                 });
-        return ans[0];
+        return box[0];
     }
 
-    public boolean queryExactExists(Double queryBeg, Double queryEnd) {
-        return queryAnyExact(queryBeg, queryEnd) != null;
+    /** Query whether there exists any stored interval exactly equalling the given interval. */
+    public boolean queryExactExists(double queryBeg, double queryEnd) {
+        return queryAnyExactId(queryBeg, queryEnd) >= 0;
     }
 
-    public void queryAll(Function<QueryResult, Boolean> callback) {
-        queryOverlap(Double.MIN_VALUE, Double.MAX_VALUE, callback);
+    /**
+     * Query for all stored intervals
+     *
+     * @param callback @see queryOverlap
+     */
+    public void queryAll(Predicate<QueryResult> callback) {
+        for (int i = 0; i < begs.length; i++) {
+            if (!callback.test(
+                    new QueryResult(begs[i], ends[i], permute != null ? permute[i] : i))) {
+                return;
+            }
+        }
     }
 
     private void recurseMaxEnds(int ofs, int node, int lvl) {
@@ -314,46 +415,57 @@ public class DoubleIntervalTree implements java.io.Serializable {
         maxEnds[ofs + node] = maxEnd;
     }
 
+    private void queryOverlapInternal(double queryBeg, double queryEnd, IntPredicate callback) {
+        for (int which_i = 0; which_i < indexNodes.length - 1; which_i++) {
+            int i = indexNodes[which_i];
+            if (begs[i] >= queryEnd) {
+                break;
+            } else if (maxEnds[i] > queryBeg) {
+                if (ends[i] > queryBeg) {
+                    if (!callback.test(i)) {
+                        return;
+                    }
+                }
+                int n_i = indexNodes[which_i + 1] - i;
+                if (n_i > 1) {
+                    int root = rootNode(n_i - 1);
+                    recurseQuery(queryBeg, queryEnd, i + 1, root, nodeLevel(root), callback);
+                }
+            }
+        }
+    }
+
     private boolean recurseQuery(
-            double queryBeg,
-            double queryEnd,
-            int ofs,
-            int node,
-            int lvl,
-            Function<QueryResult, Boolean> callback) {
+            double queryBeg, double queryEnd, int ofs, int node, int lvl, IntPredicate callback) {
         // TODO: unroll traversal of bottom few levels
         int i = ofs + node;
         if (maxEnds[i] > queryBeg) {
             if (lvl > 0) {
-                if (recurseQuery(
+                if (!recurseQuery(
                         queryBeg, queryEnd, ofs, nodeLeftChild(node, lvl), lvl - 1, callback)) {
-                    return true;
+                    return false;
                 }
             }
             if (begs[i] < queryEnd) {
                 if (ends[i] > queryBeg) {
-                    Boolean stop =
-                            callback.apply(
-                                    new QueryResult(
-                                            begs[i], ends[i], objs != null ? objs[i] : null));
-                    if (stop != null && stop != false) {
-                        return true;
+                    if (!callback.test(i)) {
+                        return false;
                     }
                 }
                 if (lvl > 0) {
-                    if (recurseQuery(
+                    if (!recurseQuery(
                             queryBeg,
                             queryEnd,
                             ofs,
                             nodeRightChild(node, lvl),
                             lvl - 1,
                             callback)) {
-                        return true;
+                        return false;
                     }
                 }
             }
         }
-        return false;
+        return true;
     }
 
     private static int nodeLevel(int node) {
@@ -376,7 +488,7 @@ public class DoubleIntervalTree implements java.io.Serializable {
         return node + (1 << (lvl - 1));
     }
 
-    private static Double max(Double lhs, Double rhs) {
+    private static double max(double lhs, double rhs) {
         // avoiding Double.max b/c Short.max does not exist for some reason
         return lhs >= rhs ? lhs : rhs;
     }

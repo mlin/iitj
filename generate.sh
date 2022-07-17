@@ -14,6 +14,8 @@ done
 cd "`dirname \"$PRG\"`/" >/dev/null
 cd src/main/java/net/mlin/iitj
 
+set -eo pipefail
+
 sed s/Double/Float/g DoubleIntervalTree.java | sed s/double/float/g > FloatIntervalTree.java
 sed s/Double/Integer/g DoubleIntervalTree.java | sed s/double/int/g > IntegerIntervalTree.java
 sed s/Double/Long/g DoubleIntervalTree.java | sed s/double/long/g > LongIntervalTree.java

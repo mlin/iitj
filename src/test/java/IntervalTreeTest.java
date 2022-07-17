@@ -4,6 +4,10 @@
 import static org.junit.Assert.*;
 
 import htsjdk.samtools.util.IntervalTree;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -37,31 +41,47 @@ public class IntervalTreeTest {
         rng.setSeed(42);
         GeometricDistribution geom = new GeometricDistribution(rng, 0.05);
 
+        // build trees
         IntegerIntervalTree.Builder builder = new IntegerIntervalTree.Builder();
         IntervalTree<ArrayList<Integer>> control = new IntervalTree<ArrayList<Integer>>();
-
         for (int i = 0; i < n; i++) {
-            int len = geom.sample() + 1;
-            int beg = 10 * i - len / 2 - 5 * n;
-            int end = beg + len;
+            final int len = geom.sample() + 1;
+            final int beg = 10 * i - len / 2 - 5 * n;
+            final int end = beg + len;
 
+            int id = builder.add(beg, end);
             IntervalTree.Node<ArrayList<Integer>> existing = control.find(beg, end - 1);
             if (existing == null) {
                 control.put(beg, end - 1, new ArrayList<Integer>());
                 existing = control.find(beg, end - 1);
             }
-            existing.getValue().add(i);
-            builder.add(beg, end, i);
+            existing.getValue().add(id);
             if (beg % 10 == 3) {
                 // spike in duplicates
-                existing.getValue().add(i);
-                builder.add(beg, end, i);
+                id = builder.add(beg, end);
+                existing.getValue().add(id);
             }
         }
 
         IntegerIntervalTree expt = builder.build();
         expt.validate();
 
+        // roundtrip our data structure through java serialization
+        try {
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            ObjectOutputStream out = new ObjectOutputStream(bos);
+            out.writeObject(expt);
+            out.close();
+            byte[] ser = bos.toByteArray();
+
+            ByteArrayInputStream bis = new ByteArrayInputStream(ser);
+            expt = (IntegerIntervalTree) (new ObjectInputStream(bis)).readObject();
+        } catch (Exception exc) {
+            assertTrue(false);
+        }
+        expt.validate();
+
+        // run queries and test equivalence
         UniformIntegerDistribution unif = new UniformIntegerDistribution(rng, 0 - 5 * n, 5 * n);
         for (int i = 0; i < n; i++) {
             int queryBeg = unif.sample();
@@ -80,9 +100,10 @@ public class IntervalTreeTest {
                 }
             }
 
+            assertEquals(expt.queryOverlapExists(queryBeg, queryEnd), !controlHits.isEmpty());
             List<IntegerIntervalTree.QueryResult> hits = expt.queryOverlap(queryBeg, queryEnd);
             assertEquals(
-                    (new IntegerIntervalTree.QueryResult(queryBeg, queryEnd, null)).toString(),
+                    (new IntegerIntervalTree.QueryResult(queryBeg, queryEnd, -1)).toString(),
                     controlHits,
                     hits);
         }

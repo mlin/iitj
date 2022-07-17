@@ -45,3 +45,7 @@ spotless {
     googleJavaFormat('1.8').aosp()
   }
 }
+
+task docs(type: Javadoc) {
+    source = sourceSets.main.allJava
+}
