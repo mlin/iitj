@@ -1,0 +1,28 @@
+name: build
+on: [push, pull_request]
+
+jobs:
+
+  lint:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        submodules: recursive
+    - name: ktlint
+      run: gradle spotlessCheck
+
+  test:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        submodules: recursive
+    - name: build & test
+      run: gradle test
+    - name: docs
+      run: gradle docs
+    - name: mvn-repo
+      run: gradle publish

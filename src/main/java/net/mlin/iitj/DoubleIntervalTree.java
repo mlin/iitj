@@ -118,7 +118,7 @@ public class DoubleIntervalTree implements java.io.Serializable {
     // Write N as a sum of powers of two, e.g. N = 12345 = 8192 + 4096 + 32 + 16 + 8 + 1, and
     // consider the corresponding slices of the interval array. The leftmost item in each slice is
     // an "index node", and the 2^p-1 remaining items (for some 0<=p<32) are an implicit binary
-    // search tree as in Li's cgranges. Our trees are full & complete by construction, which avoids
+    // search tree as in Li's cgranges. Our trees are full & complete by construction, avoiding
     // some complications cgranges handles when that's not so.
     // indexNodes stores the row numbers of the index nodes, in ascending order. The first element
     // is always zero and a last element equal to N is appended as a convenience. The difference
@@ -263,8 +263,8 @@ public class DoubleIntervalTree implements java.io.Serializable {
      * @param queryEnd Query interval end position (exclusive). A stored interval whose begin
      *     position equals the query end position is considered abutting, but NOT overlapping the
      *     query, so would not be returned.
-     * @param callback Function to be called for each query result. The function may return true to
-     *     continue the query, or false to stop immediately.
+     * @param callback Predicate function to be called with each query result; it may return true
+     *     to continue the query, or false to stop immediately.
      */
     public void queryOverlap(double queryBeg, double queryEnd, Predicate<QueryResult> callback) {
         queryOverlapInternal(
@@ -309,8 +309,8 @@ public class DoubleIntervalTree implements java.io.Serializable {
      * @param queryEnd Query interval end position (exclusive). A stored interval whose begin
      *     position equals the query end position is considered abutting, but NOT overlapping the
      *     query, so would not be returned.
-     * @param callback Function to be called for each query result ID. The function may return true
-     *     to continue the query, or false to stop immediately.
+     * @param callback Predicate function to be called with each query result ID; it may return
+     *     true to continue the query, or false to stop immediately.
      */
     public void queryOverlapId(double queryBeg, double queryEnd, IntPredicate callback) {
         queryOverlapInternal(
@@ -435,11 +435,11 @@ public class DoubleIntervalTree implements java.io.Serializable {
         Double maxEnd = all[Ci + END];
         if (lvl > 0) {
             int ch = nodeLeftChild(node, lvl);
-            assert ch >= 0 && ch < node;
+            // assert ch >= 0 && ch < node;
             recurseMaxEnds(row0, ch, lvl - 1);
             maxEnd = max(maxEnd, all[C * (row0 + ch) + MAX_END]);
             ch = nodeRightChild(node, lvl);
-            assert ch > node && ch < N;
+            // assert ch > node && ch < N;
             recurseMaxEnds(row0, ch, lvl - 1);
             maxEnd = max(maxEnd, all[C * (row0 + ch) + MAX_END]);
         }

@@ -11,13 +11,12 @@ import java.util.function.Predicate;
 /**
  * Data structure storing [int begin, int end) intervals and answering requests for those
  * overlapping a query interval. Each stored interval is associated with an integer equal to the
- * order in which it was added (zero-based).
- *
- * <p>The index is memory-efficient and serializable, but read-only once built.
+ * order in which it was added (zero-based). The index is compact in memory and serializes
+ * efficiently, but it's read-only once built.
  */
 public class IntegerIntervalTree implements java.io.Serializable {
 
-    /** Builder storing items to be stored in a IntegerIntervalTree */
+    /** Builder storing items to be indexed in a IntegerIntervalTree */
     public static class Builder {
         private int n;
         private int[] begs, ends;
@@ -119,7 +118,7 @@ public class IntegerIntervalTree implements java.io.Serializable {
     // Write N as a sum of powers of two, e.g. N = 12345 = 8192 + 4096 + 32 + 16 + 8 + 1, and
     // consider the corresponding slices of the interval array. The leftmost item in each slice is
     // an "index node", and the 2^p-1 remaining items (for some 0<=p<32) are an implicit binary
-    // search tree as in Li's cgranges. Our trees are full & complete by construction, which avoids
+    // search tree as in Li's cgranges. Our trees are full & complete by construction, avoiding
     // some complications cgranges handles when that's not so.
     // indexNodes stores the row numbers of the index nodes, in ascending order. The first element
     // is always zero and a last element equal to N is appended as a convenience. The difference
@@ -264,8 +263,8 @@ public class IntegerIntervalTree implements java.io.Serializable {
      * @param queryEnd Query interval end position (exclusive). A stored interval whose begin
      *     position equals the query end position is considered abutting, but NOT overlapping the
      *     query, so would not be returned.
-     * @param callback Function to be called for each query result. The function may return true to
-     *     continue the query, or false to stop immediately.
+     * @param callback Predicate function to be called with each query result; it may return true
+     *     to continue the query, or false to stop immediately.
      */
     public void queryOverlap(int queryBeg, int queryEnd, Predicate<QueryResult> callback) {
         queryOverlapInternal(
@@ -310,8 +309,8 @@ public class IntegerIntervalTree implements java.io.Serializable {
      * @param queryEnd Query interval end position (exclusive). A stored interval whose begin
      *     position equals the query end position is considered abutting, but NOT overlapping the
      *     query, so would not be returned.
-     * @param callback Function to be called for each query result ID. The function may return true
-     *     to continue the query, or false to stop immediately.
+     * @param callback Predicate function to be called with each query result ID; it may return
+     *     true to continue the query, or false to stop immediately.
      */
     public void queryOverlapId(int queryBeg, int queryEnd, IntPredicate callback) {
         queryOverlapInternal(
@@ -340,7 +339,7 @@ public class IntegerIntervalTree implements java.io.Serializable {
     }
 
     /**
-     * Return any one ID of a stored interval overlapping the given interval.
+     * Query for any one ID of a stored interval overlapping the given interval.
      *
      * @param queryBeg Query interval begin position (inclusive)
      * @param queryEnd Query interval end position (exclusive). A stored interval whose begin
@@ -436,11 +435,11 @@ public class IntegerIntervalTree implements java.io.Serializable {
         Integer maxEnd = all[Ci + END];
         if (lvl > 0) {
             int ch = nodeLeftChild(node, lvl);
-            assert ch >= 0 && ch < node;
+            // assert ch >= 0 && ch < node;
             recurseMaxEnds(row0, ch, lvl - 1);
             maxEnd = max(maxEnd, all[C * (row0 + ch) + MAX_END]);
             ch = nodeRightChild(node, lvl);
-            assert ch > node && ch < N;
+            // assert ch > node && ch < N;
             recurseMaxEnds(row0, ch, lvl - 1);
             maxEnd = max(maxEnd, all[C * (row0 + ch) + MAX_END]);
         }
