@@ -1,13 +1,17 @@
 # iitj
 **Implicit Interval Trees (for Java)**
 
+[![build](https://github.com/mlin/iitj/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/mlin/iitj/actions/workflows/build.yml) [![javadoc](https://img.shields.io/badge/javadoc-latest-brightgreen)](https://mlin.github.io/iitj/javadoc/latest)
+
 iitj provides an in-memory data structure for indexing [begin,end) position intervals, such as genome feature annotations or time windows, and answering requests for all items overlapping a query interval. The design is based on [Heng Li's cgranges](https://github.com/lh3/cgranges), differing in some implementation details. It's compact in memory (by JVM standards) and serializes efficiently, but currently read-only once built.
 
 Our original motivation was to have a data structure suitable to ship in [Apache Spark broadcast variables](https://spark.apache.org/docs/3.2.1/rdd-programming-guide.html#broadcast-variables) for distributed joining/filtering of big genomic datasets with smaller reference annotations.
 
-### Quick start
+### Installation
 
-Add entries like the following to your Maven `pom.xml`:
+Check the current [release version](https://github.com/mlin/iitj/releases) X.Y.Z and,
+
+**Maven:** add to your `pom.xml`:
 
 ```xml
     <repositories>
@@ -25,9 +29,22 @@ Add entries like the following to your Maven `pom.xml`:
     </dependencies>
 ```
 
-where X.Y.Z is the desired [release](https://github.com/mlin/iitj/releases).
+**Gradle:** add to your `gradle.build`:
 
-Then import any of `net.mlin.iitj.{Double,Float,Integer,Long,Short}IntervalTree` according to the desired interval position type. The following example will use `IntegerIntervalTree`.
+```groovy
+repositories {
+    maven {
+        url "https://raw.githubusercontent.com/wiki/mlin/iitj/mvn-repo/"
+    }
+}
+dependencies {
+    implementation 'net.mlin:iitj:X.Y.Z'
+}
+```
+
+### Quick start
+
+Import any of `net.mlin.iitj.{Double,Float,Integer,Long,Short}IntervalTree` according to the desired interval position type. The following example will use `IntegerIntervalTree`.
 
 ```java
 import net.mlin.iitj.IntervalIntegerTree;
@@ -55,6 +72,8 @@ output:
 All [beg, end) interval positions are *half-open*, with inclusive begin position and exclusive end position. Given a query interval [x,y), intervals [w,x) and [y,z) are abutting but *not* overlapping, so would not be returned by the overlap query. (See [Dijkstra's note](https://www.cs.utexas.edu/users/EWD/ewd08xx/EWD831.PDF) on this convention.)
 
 Use the interval IDs, reflecting the order in which they're added to the builder, to associate results with other data/objects if needed.
+
+### [API Javadoc](https://mlin.github.io/iitj/javadoc/latest)
 
 ### Design notes
 
