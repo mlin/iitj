@@ -1,7 +1,7 @@
 # iitj
 **Implicit Interval Trees (for Java)**
 
-iitj provides an in-memory data structure for indexing begin/end position intervals, such as genome feature annotations or time windows, and answering requests for all items overlapping a query interval. The design is based on [Heng Li's cgranges](https://github.com/lh3/cgranges), differing in some implementation details. It's compact in memory (by JVM standards) and serializes efficiently, but it's currently read-only once built.
+iitj provides an in-memory data structure for indexing [begin,end) position intervals, such as genome feature annotations or time windows, and answering requests for all items overlapping a query interval. The design is based on [Heng Li's cgranges](https://github.com/lh3/cgranges), differing in some implementation details. It's compact in memory (by JVM standards) and serializes efficiently, but currently read-only once built.
 
 Our original motivation was to have a data structure suitable to ship in [Apache Spark broadcast variables](https://spark.apache.org/docs/3.2.1/rdd-programming-guide.html#broadcast-variables) for distributed joining/filtering of big genomic datasets with smaller reference annotations.
 

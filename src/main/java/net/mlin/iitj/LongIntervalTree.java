@@ -102,19 +102,13 @@ public class LongIntervalTree implements java.io.Serializable {
         }
     }
 
-    // Number of intervals stored
-    private final int N;
-    // We store the interval begin positions, end positions, and augmentation values (maxEnds) in
-    // a primitive array, keeping them compacted in memory in a cache-friendly way. We use an
-    // N-by-3 matrix but since Java doesn't have true multidimensional arrays, we tediously write
-    // out all the offset arithmetic to navigate the N*3-length all array. The 'rows' are sorted
-    // by begin position, then by end position.
-    private final long[] all; // N*3 row-major
-    // These constants make the offset arithmetic code a little more readable.
-    private static final int C = 3;
-    private static final int BEG = 0;
-    private static final int END = 1;
-    private static final int MAX_END = 2;
+    // We store the N interval begin positions, end positions, and augmentation values (maxEnds) in
+    // separate arrays to keep them unboxed. The intervals represented by each array are sorted by
+    // begin position, then by end position.
+    // Note: we've explored transposing these into a single row-major array to improve cache
+    //       locality, but it (i) complicates the code and (ii) lowers the effective maximum N due
+    //       to the maximum Java array size. (commit cca404ab)
+    private final long[] begs, ends, maxEnds;
     // Write N as a sum of powers of two, e.g. N = 12345 = 8192 + 4096 + 32 + 16 + 8 + 1, and
     // consider the corresponding slices of the interval array. The leftmost item in each slice is
     // an "index node", and the 2^p-1 remaining items (for some 0<=p<32) are an implicit binary
@@ -124,18 +118,21 @@ public class LongIntervalTree implements java.io.Serializable {
     // is always zero and a last element equal to N is appended as a convenience. The difference
     // between any two adjacent elements is one of the powers of two.
     private final int[] indexNodes;
-    // If the intervals weren't originally provided to the builder in sorted order, then permute
-    // stores their IDs corresponding to their insertion order. Otherwise permute is null and the
-    // IDs are the row numbers in all.
+    // If the intervals weren't originally provided to the builder in the same sorted order, then
+    // permute stores their original IDs. Otherwise permute is null and the IDs are the indexes
+    // in the above sorted arrays.
     private final int[] permute;
 
     private LongIntervalTree(Builder builder) {
-        N = builder.n;
-        all = new long[C * N];
+        final int n = builder.n;
+        begs = new long[n];
+        ends = new long[n];
+        maxEnds = new long[n];
 
         // compute sorting permutation of builder intervals, if needed, then copy the data in
+        // https://stackoverflow.com/a/25778783
         if (!builder.isSorted()) {
-            permute = // https://stackoverflow.com/a/25778783
+            permute =
                     java.util.stream.IntStream.range(0, builder.n)
                             .mapToObj(i -> Integer.valueOf(i))
                             .sorted(
@@ -150,28 +147,26 @@ public class LongIntervalTree implements java.io.Serializable {
                             .toArray();
 
             for (int i = 0; i < builder.n; i++) {
-                final int Ci = C * i;
-                all[Ci + BEG] = builder.begs[permute[i]];
-                all[Ci + END] = builder.ends[permute[i]];
+                begs[i] = builder.begs[permute[i]];
+                ends[i] = builder.ends[permute[i]];
             }
         } else {
             for (int i = 0; i < builder.n; i++) {
-                final int Ci = C * i;
-                all[Ci + BEG] = builder.begs[i];
-                all[Ci + END] = builder.ends[i];
+                begs[i] = builder.begs[i];
+                ends[i] = builder.ends[i];
             }
             permute = null;
         }
         builder.reset();
 
         // compute index nodes
-        final int[] indexNodesTmp = new int[31];
+        int[] indexNodesTmp = new int[31];
         indexNodesTmp[0] = 0;
         int nIndexNodes = 1;
 
-        int nRem = N;
+        int nRem = n;
         while (nRem > 0) { // for each binary one digit in N
-            final int p2 = Integer.highestOneBit(nRem);
+            int p2 = Integer.highestOneBit(nRem);
             assert p2 > 0 && Integer.bitCount(p2) == 1;
             indexNodesTmp[nIndexNodes] = p2 + indexNodesTmp[nIndexNodes - 1];
             nIndexNodes++;
@@ -181,47 +176,52 @@ public class LongIntervalTree implements java.io.Serializable {
         for (int i = 0; i < nIndexNodes; i++) {
             indexNodes[i] = indexNodesTmp[i];
         }
-        assert indexNodes[nIndexNodes - 1] == N;
+        assert indexNodes[nIndexNodes - 1] == n;
 
         // Compute maxEnds througout each implict tree; for the index nodes themselves, the maxEnd
         // is the greater of its own end position and the maxEnd of the subsequent tree.
         for (int which_i = 0; which_i < indexNodes.length - 1; which_i++) {
-            final int i = indexNodes[which_i];
-            final int n_i = indexNodes[which_i + 1] - i;
-            final int Ci = C * i;
+            int i = indexNodes[which_i];
+            int n_i = indexNodes[which_i + 1] - i;
             assert n_i > 0 && Integer.bitCount(n_i) == 1;
             if (n_i == 1) {
-                all[Ci + MAX_END] = all[Ci + END];
+                maxEnds[i] = ends[i];
             } else {
                 int root = rootNode(n_i - 1);
                 assert nodeLevel(root) == rootLevel(n_i - 1);
                 recurseMaxEnds(i + 1, root, nodeLevel(root));
-                all[Ci + MAX_END] = max(all[Ci + END], all[C * (i + 1 + root) + MAX_END]);
+                maxEnds[i] = max(ends[i], maxEnds[i + 1 + root]);
             }
         }
     }
 
     public void validate() {
-        assert all.length == C * N;
-        assert permute == null || permute.length == N;
+        int n = begs.length;
+        assert ends.length == n;
+        assert maxEnds.length == n;
+        assert permute == null || permute.length == n;
 
-        for (int i = 0; i < N; i++) {
-            final int Ci = C * i;
-            assert all[Ci + END] >= all[Ci + BEG];
+        for (int i = 0; i < n; i++) {
+            assert ends[i] >= begs[i];
             if (i > 0) {
-                if (all[Ci + BEG] == all[Ci - C + BEG]) {
-                    assert all[Ci + END] >= all[Ci - C + END];
+                if (begs[i] == begs[i - 1]) {
+                    assert ends[i] >= ends[i - 1];
                 } else {
-                    assert all[Ci + BEG] > all[Ci - C + BEG];
+                    assert begs[i] > begs[i - 1];
                 }
             }
-            assert all[Ci + MAX_END] >= all[Ci + END];
+            assert maxEnds[i] >= ends[i]
+                    : String.valueOf(maxEnds[i])
+                            + "<"
+                            + String.valueOf(ends[i])
+                            + "@"
+                            + String.valueOf(i);
         }
     }
 
     /** @return Total number of intervals stored. */
     public int size() {
-        return N;
+        return begs.length;
     }
 
     /** Result from a query, an interval and its ID as returned by Builder.add() */
@@ -270,14 +270,10 @@ public class LongIntervalTree implements java.io.Serializable {
         queryOverlapInternal(
                 queryBeg,
                 queryEnd,
-                i -> {
-                    final int Ci = C * i;
-                    return callback.test(
-                            new QueryResult(
-                                    all[Ci + BEG],
-                                    all[Ci + END],
-                                    permute != null ? permute[i] : i));
-                });
+                i ->
+                        callback.test(
+                                new QueryResult(
+                                        begs[i], ends[i], permute != null ? permute[i] : i)));
     }
 
     /**
@@ -382,8 +378,7 @@ public class LongIntervalTree implements java.io.Serializable {
                 queryBeg,
                 queryEnd,
                 i -> {
-                    final int Ci = C * i;
-                    if (all[Ci + BEG] == queryBeg && all[Ci + END] == queryEnd) {
+                    if (begs[i] == queryBeg && ends[i] == queryEnd) {
                         return callback.test(permute != null ? permute[i] : i);
                     }
                     return true;
@@ -418,43 +413,39 @@ public class LongIntervalTree implements java.io.Serializable {
      * @param callback @see queryOverlap
      */
     public void queryAll(Predicate<QueryResult> callback) {
-        for (int i = 0; i < N; i++) {
-            final int Ci = C * i;
+        for (int i = 0; i < begs.length; i++) {
             if (!callback.test(
-                    new QueryResult(
-                            all[Ci + BEG], all[Ci + END], permute != null ? permute[i] : i))) {
+                    new QueryResult(begs[i], ends[i], permute != null ? permute[i] : i))) {
                 return;
             }
         }
     }
 
-    private void recurseMaxEnds(final int row0, final int node, final int lvl) {
+    private void recurseMaxEnds(int ofs, int node, int lvl) {
         // compute interval tree augmentation values for the subtree rooted at (ofs+node)
         // TODO: should be faster to replace recursion with stepping through levels, as in cgranges
-        final int Ci = C * (row0 + node);
-        Long maxEnd = all[Ci + END];
+        Long maxEnd = ends[ofs + node];
         if (lvl > 0) {
             int ch = nodeLeftChild(node, lvl);
-            // assert ch >= 0 && ch < node;
-            recurseMaxEnds(row0, ch, lvl - 1);
-            maxEnd = max(maxEnd, all[C * (row0 + ch) + MAX_END]);
+            assert ch >= 0 && ch < node;
+            recurseMaxEnds(ofs, ch, lvl - 1);
+            maxEnd = max(maxEnd, maxEnds[ofs + ch]);
             ch = nodeRightChild(node, lvl);
-            // assert ch > node && ch < N;
-            recurseMaxEnds(row0, ch, lvl - 1);
-            maxEnd = max(maxEnd, all[C * (row0 + ch) + MAX_END]);
+            assert ch > node && ch < begs.length;
+            recurseMaxEnds(ofs, ch, lvl - 1);
+            maxEnd = max(maxEnd, maxEnds[ofs + ch]);
         }
-        all[Ci + MAX_END] = maxEnd;
+        maxEnds[ofs + node] = maxEnd;
     }
 
     private void queryOverlapInternal(long queryBeg, long queryEnd, IntPredicate callback) {
         // for each index node
         for (int which_i = 0; which_i < indexNodes.length - 1; which_i++) {
-            final int i = indexNodes[which_i];
-            final int Ci = C * i;
-            if (all[Ci + BEG] >= queryEnd) {
+            int i = indexNodes[which_i];
+            if (begs[i] >= queryEnd) {
                 break; // whole remainder of the beg-sorted array must be irrelevant
-            } else if (all[Ci + MAX_END] > queryBeg) { // slice has relevant item(s)
-                if (all[Ci + END] > queryBeg) { // index node is a hit itself, return it first
+            } else if (maxEnds[i] > queryBeg) { // slice has relevant item(s)
+                if (ends[i] > queryBeg) { // index node is a hit itself, return it first
                     if (!callback.test(i)) {
                         return;
                     }
@@ -472,24 +463,18 @@ public class LongIntervalTree implements java.io.Serializable {
     }
 
     private boolean recurseQuery(
-            long queryBeg,
-            long queryEnd,
-            final int row0,
-            final int node,
-            final int lvl,
-            IntPredicate callback) {
+            long queryBeg, long queryEnd, int ofs, int node, int lvl, IntPredicate callback) {
         // TODO: unroll traversal of bottom few levels
-        final int i = row0 + node;
-        final int Ci = C * i;
-        if (all[Ci + MAX_END] > queryBeg) { // subtree rooted here may have relevant item(s)
+        int i = ofs + node;
+        if (maxEnds[i] > queryBeg) { // subtree rooted here may have relevant item(s)
             if (lvl > 0) { // search left subtree
                 if (!recurseQuery(
-                        queryBeg, queryEnd, row0, nodeLeftChild(node, lvl), lvl - 1, callback)) {
+                        queryBeg, queryEnd, ofs, nodeLeftChild(node, lvl), lvl - 1, callback)) {
                     return false;
                 }
             }
-            if (all[Ci + BEG] < queryEnd) { // root or right subtree may include relevant item(s)
-                if (all[Ci + END] > queryBeg) { // current root overlaps
+            if (begs[i] < queryEnd) { // root or right subtree may include relevant item(s)
+                if (ends[i] > queryBeg) { // current root overlaps
                     if (!callback.test(i)) {
                         return false;
                     }
@@ -498,7 +483,7 @@ public class LongIntervalTree implements java.io.Serializable {
                     if (!recurseQuery(
                             queryBeg,
                             queryEnd,
-                            row0,
+                            ofs,
                             nodeRightChild(node, lvl),
                             lvl - 1,
                             callback)) {
