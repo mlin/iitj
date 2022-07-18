@@ -1,3 +1,7 @@
+// IMPORTANT: Doub1eIntervalTree.java serves as our original source code and we derive
+// {Float,Integer,Long,Short}IntervalTree.java from it using the generate.sh script. We take this
+// approach instead of Java generics in order to use the unboxed primitive number types wherever
+// possible.
 package net.mlin.iitj;
 
 import java.util.ArrayList;
@@ -99,34 +103,40 @@ public class ShortIntervalTree implements java.io.Serializable {
         }
     }
 
+    // Number of intervals stored
+    private final int N;
     // We store the interval begin positions, end positions, and augmentation values (maxEnds) in
-    // separate arrays to keep them unboxed. These arrays each correspond to the intervals sorted
-    // by begin position then by end position.
-    private final short[] begs, ends, maxEnds;
-    // If the intervals weren't originally provided to the builder in the same sorted order, then
-    // permute stores their original IDs. Otherwise permute is null and the IDs are the indexes
-    // in the above sorted arrays.
-    private final int[] permute;
-    // We can view any N, the number of intervals stored, as a sum of powers of 2, and the above
-    // arrays as a concatenation of slices, each one of these powers of 2 in length. The leftmost
-    // item in each slice is the "index node", and the 2^p-1 remaining items (for some 0<=p<32)
-    // are an implicit binary search tree as in Li's cgranges. These trees are full & complete by
-    // construction, which avoids the need for workarounds cgranges has for when that's not so.
-    //
-    // indexNodes provides the array offsets for the index nodes in ascending order. The first
-    // element is always zero and a last element equal to N is appended as a convenience.
+    // a primitive array, keeping them compacted in memory in a cache-friendly way. We use an
+    // N-by-3 matrix but since Java doesn't have true multidimensional arrays, we tediously write
+    // out all the offset arithmetic to navigate the N*3-length all array. The 'rows' are sorted
+    // by begin position, then by end position.
+    private final short[] all; // N*3 row-major
+    // These constants make the offset arithmetic code a little more readable.
+    private static final int C = 3;
+    private static final int BEG = 0;
+    private static final int END = 1;
+    private static final int MAX_END = 2;
+    // Write N as a sum of powers of two, e.g. N = 12345 = 8192 + 4096 + 32 + 16 + 8 + 1, and
+    // consider the corresponding slices of the interval array. The leftmost item in each slice is
+    // an "index node", and the 2^p-1 remaining items (for some 0<=p<32) are an implicit binary
+    // search tree as in Li's cgranges. Our trees are full & complete by construction, which avoids
+    // some complications cgranges handles when that's not so.
+    // indexNodes stores the row numbers of the index nodes, in ascending order. The first element
+    // is always zero and a last element equal to N is appended as a convenience. The difference
+    // between any two adjacent elements is one of the powers of two.
     private final int[] indexNodes;
+    // If the intervals weren't originally provided to the builder in sorted order, then permute
+    // stores their IDs corresponding to their insertion order. Otherwise permute is null and the
+    // IDs are the row numbers in all.
+    private final int[] permute;
 
     private ShortIntervalTree(Builder builder) {
-        final int n = builder.n;
-        begs = new short[n];
-        ends = new short[n];
-        maxEnds = new short[n];
+        N = builder.n;
+        all = new short[C * N];
 
         // compute sorting permutation of builder intervals, if needed, then copy the data in
-        // https://stackoverflow.com/a/25778783
         if (!builder.isSorted()) {
-            permute =
+            permute = // https://stackoverflow.com/a/25778783
                     java.util.stream.IntStream.range(0, builder.n)
                             .mapToObj(i -> Integer.valueOf(i))
                             .sorted(
@@ -141,26 +151,28 @@ public class ShortIntervalTree implements java.io.Serializable {
                             .toArray();
 
             for (int i = 0; i < builder.n; i++) {
-                begs[i] = builder.begs[permute[i]];
-                ends[i] = builder.ends[permute[i]];
+                final int Ci = C * i;
+                all[Ci + BEG] = builder.begs[permute[i]];
+                all[Ci + END] = builder.ends[permute[i]];
             }
         } else {
             for (int i = 0; i < builder.n; i++) {
-                begs[i] = builder.begs[i];
-                ends[i] = builder.ends[i];
+                final int Ci = C * i;
+                all[Ci + BEG] = builder.begs[i];
+                all[Ci + END] = builder.ends[i];
             }
             permute = null;
         }
         builder.reset();
 
         // compute index nodes
-        int[] indexNodesTmp = new int[31];
+        final int[] indexNodesTmp = new int[31];
         indexNodesTmp[0] = 0;
         int nIndexNodes = 1;
 
-        int nRem = n;
+        int nRem = N;
         while (nRem > 0) { // for each binary one digit in N
-            int p2 = Integer.highestOneBit(nRem);
+            final int p2 = Integer.highestOneBit(nRem);
             assert p2 > 0 && Integer.bitCount(p2) == 1;
             indexNodesTmp[nIndexNodes] = p2 + indexNodesTmp[nIndexNodes - 1];
             nIndexNodes++;
@@ -170,52 +182,47 @@ public class ShortIntervalTree implements java.io.Serializable {
         for (int i = 0; i < nIndexNodes; i++) {
             indexNodes[i] = indexNodesTmp[i];
         }
-        assert indexNodes[nIndexNodes - 1] == n;
+        assert indexNodes[nIndexNodes - 1] == N;
 
         // Compute maxEnds througout each implict tree; for the index nodes themselves, the maxEnd
         // is the greater of its own end position and the maxEnd of the subsequent tree.
         for (int which_i = 0; which_i < indexNodes.length - 1; which_i++) {
-            int i = indexNodes[which_i];
-            int n_i = indexNodes[which_i + 1] - i;
+            final int i = indexNodes[which_i];
+            final int n_i = indexNodes[which_i + 1] - i;
+            final int Ci = C * i;
             assert n_i > 0 && Integer.bitCount(n_i) == 1;
             if (n_i == 1) {
-                maxEnds[i] = ends[i];
+                all[Ci + MAX_END] = all[Ci + END];
             } else {
                 int root = rootNode(n_i - 1);
                 assert nodeLevel(root) == rootLevel(n_i - 1);
                 recurseMaxEnds(i + 1, root, nodeLevel(root));
-                maxEnds[i] = max(ends[i], maxEnds[i + 1 + root]);
+                all[Ci + MAX_END] = max(all[Ci + END], all[C * (i + 1 + root) + MAX_END]);
             }
         }
     }
 
     public void validate() {
-        int n = begs.length;
-        assert ends.length == n;
-        assert maxEnds.length == n;
-        assert permute == null || permute.length == n;
+        assert all.length == C * N;
+        assert permute == null || permute.length == N;
 
-        for (int i = 0; i < n; i++) {
-            assert ends[i] >= begs[i];
+        for (int i = 0; i < N; i++) {
+            final int Ci = C * i;
+            assert all[Ci + END] >= all[Ci + BEG];
             if (i > 0) {
-                if (begs[i] == begs[i - 1]) {
-                    assert ends[i] >= ends[i - 1];
+                if (all[Ci + BEG] == all[Ci - C + BEG]) {
+                    assert all[Ci + END] >= all[Ci - C + END];
                 } else {
-                    assert begs[i] > begs[i - 1];
+                    assert all[Ci + BEG] > all[Ci - C + BEG];
                 }
             }
-            assert maxEnds[i] >= ends[i]
-                    : String.valueOf(maxEnds[i])
-                            + "<"
-                            + String.valueOf(ends[i])
-                            + "@"
-                            + String.valueOf(i);
+            assert all[Ci + MAX_END] >= all[Ci + END];
         }
     }
 
     /** @return Total number of intervals stored. */
     public int size() {
-        return begs.length;
+        return N;
     }
 
     /** Result from a query, an interval and its ID as returned by Builder.add() */
@@ -264,10 +271,14 @@ public class ShortIntervalTree implements java.io.Serializable {
         queryOverlapInternal(
                 queryBeg,
                 queryEnd,
-                i ->
-                        callback.test(
-                                new QueryResult(
-                                        begs[i], ends[i], permute != null ? permute[i] : i)));
+                i -> {
+                    final int Ci = C * i;
+                    return callback.test(
+                            new QueryResult(
+                                    all[Ci + BEG],
+                                    all[Ci + END],
+                                    permute != null ? permute[i] : i));
+                });
     }
 
     /**
@@ -372,7 +383,8 @@ public class ShortIntervalTree implements java.io.Serializable {
                 queryBeg,
                 queryEnd,
                 i -> {
-                    if (begs[i] == queryBeg && ends[i] == queryEnd) {
+                    final int Ci = C * i;
+                    if (all[Ci + BEG] == queryBeg && all[Ci + END] == queryEnd) {
                         return callback.test(permute != null ? permute[i] : i);
                     }
                     return true;
@@ -407,39 +419,43 @@ public class ShortIntervalTree implements java.io.Serializable {
      * @param callback @see queryOverlap
      */
     public void queryAll(Predicate<QueryResult> callback) {
-        for (int i = 0; i < begs.length; i++) {
+        for (int i = 0; i < N; i++) {
+            final int Ci = C * i;
             if (!callback.test(
-                    new QueryResult(begs[i], ends[i], permute != null ? permute[i] : i))) {
+                    new QueryResult(
+                            all[Ci + BEG], all[Ci + END], permute != null ? permute[i] : i))) {
                 return;
             }
         }
     }
 
-    private void recurseMaxEnds(int ofs, int node, int lvl) {
+    private void recurseMaxEnds(final int row0, final int node, final int lvl) {
         // compute interval tree augmentation values for the subtree rooted at (ofs+node)
         // TODO: should be faster to replace recursion with stepping through levels, as in cgranges
-        Short maxEnd = ends[ofs + node];
+        final int Ci = C * (row0 + node);
+        Short maxEnd = all[Ci + END];
         if (lvl > 0) {
             int ch = nodeLeftChild(node, lvl);
             assert ch >= 0 && ch < node;
-            recurseMaxEnds(ofs, ch, lvl - 1);
-            maxEnd = max(maxEnd, maxEnds[ofs + ch]);
+            recurseMaxEnds(row0, ch, lvl - 1);
+            maxEnd = max(maxEnd, all[C * (row0 + ch) + MAX_END]);
             ch = nodeRightChild(node, lvl);
-            assert ch > node && ch < begs.length;
-            recurseMaxEnds(ofs, ch, lvl - 1);
-            maxEnd = max(maxEnd, maxEnds[ofs + ch]);
+            assert ch > node && ch < N;
+            recurseMaxEnds(row0, ch, lvl - 1);
+            maxEnd = max(maxEnd, all[C * (row0 + ch) + MAX_END]);
         }
-        maxEnds[ofs + node] = maxEnd;
+        all[Ci + MAX_END] = maxEnd;
     }
 
     private void queryOverlapInternal(short queryBeg, short queryEnd, IntPredicate callback) {
         // for each index node
         for (int which_i = 0; which_i < indexNodes.length - 1; which_i++) {
-            int i = indexNodes[which_i];
-            if (begs[i] >= queryEnd) {
+            final int i = indexNodes[which_i];
+            final int Ci = C * i;
+            if (all[Ci + BEG] >= queryEnd) {
                 break; // whole remainder of the beg-sorted array must be irrelevant
-            } else if (maxEnds[i] > queryBeg) { // slice has relevant item(s)
-                if (ends[i] > queryBeg) { // index node is a hit itself, return it first
+            } else if (all[Ci + MAX_END] > queryBeg) { // slice has relevant item(s)
+                if (all[Ci + END] > queryBeg) { // index node is a hit itself, return it first
                     if (!callback.test(i)) {
                         return;
                     }
@@ -457,18 +473,24 @@ public class ShortIntervalTree implements java.io.Serializable {
     }
 
     private boolean recurseQuery(
-            short queryBeg, short queryEnd, int ofs, int node, int lvl, IntPredicate callback) {
+            short queryBeg,
+            short queryEnd,
+            final int row0,
+            final int node,
+            final int lvl,
+            IntPredicate callback) {
         // TODO: unroll traversal of bottom few levels
-        int i = ofs + node;
-        if (maxEnds[i] > queryBeg) { // subtree rooted here may have relevant item(s)
+        final int i = row0 + node;
+        final int Ci = C * i;
+        if (all[Ci + MAX_END] > queryBeg) { // subtree rooted here may have relevant item(s)
             if (lvl > 0) { // search left subtree
                 if (!recurseQuery(
-                        queryBeg, queryEnd, ofs, nodeLeftChild(node, lvl), lvl - 1, callback)) {
+                        queryBeg, queryEnd, row0, nodeLeftChild(node, lvl), lvl - 1, callback)) {
                     return false;
                 }
             }
-            if (begs[i] < queryEnd) { // root or right subtree may include relevant item(s)
-                if (ends[i] > queryBeg) { // current root overlaps
+            if (all[Ci + BEG] < queryEnd) { // root or right subtree may include relevant item(s)
+                if (all[Ci + END] > queryBeg) { // current root overlaps
                     if (!callback.test(i)) {
                         return false;
                     }
@@ -477,7 +499,7 @@ public class ShortIntervalTree implements java.io.Serializable {
                     if (!recurseQuery(
                             queryBeg,
                             queryEnd,
-                            ofs,
+                            row0,
                             nodeRightChild(node, lvl),
                             lvl - 1,
                             callback)) {
