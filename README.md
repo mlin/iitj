@@ -7,7 +7,7 @@ iitj provides an in-memory data structure for indexing [begin,end) position inte
 
 Our original motivation was to have a data structure suitable to ship in [Apache Spark broadcast variables](https://spark.apache.org/docs/3.2.1/rdd-programming-guide.html#broadcast-variables) for distributed joining/filtering of big genomic datasets with smaller reference annotations.
 
-### Installation
+## Installation
 
 Check the current [release version](https://github.com/mlin/iitj/releases) X.Y.Z and,
 
@@ -42,7 +42,7 @@ dependencies {
 }
 ```
 
-### Quick start
+## Quick start
 
 Import any of `net.mlin.iitj.{Double,Float,Integer,Long,Short}IntervalTree` according to the desired interval position type. The following example will use `IntegerIntervalTree`.
 
@@ -73,9 +73,9 @@ All [beg, end) interval positions are *half-open*, with inclusive begin position
 
 Use the interval IDs, reflecting the order in which they're added to the builder, to associate results with other data/objects if needed.
 
-### [API Javadoc](https://mlin.github.io/iitj/javadoc/latest)
+## [API Javadoc](https://mlin.github.io/iitj/javadoc/latest)
 
-### Design notes
+## Design notes
 
 **Data structure layout.** First please review the original design of [cgranges](https://github.com/lh3/cgranges); we have some [extra notes](https://github.com/mlin/iitii/blob/master/notes_on_cgranges.md) to help.
 
