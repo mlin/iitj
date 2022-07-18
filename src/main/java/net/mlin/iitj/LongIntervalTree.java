@@ -427,11 +427,11 @@ public class LongIntervalTree implements java.io.Serializable {
         Long maxEnd = ends[ofs + node];
         if (lvl > 0) {
             int ch = nodeLeftChild(node, lvl);
-            assert ch >= 0 && ch < node;
+            // assert ch >= 0 && ch < node;
             recurseMaxEnds(ofs, ch, lvl - 1);
             maxEnd = max(maxEnd, maxEnds[ofs + ch]);
             ch = nodeRightChild(node, lvl);
-            assert ch > node && ch < begs.length;
+            // assert ch > node && ch < begs.length;
             recurseMaxEnds(ofs, ch, lvl - 1);
             maxEnd = max(maxEnd, maxEnds[ofs + ch]);
         }
@@ -518,7 +518,7 @@ public class LongIntervalTree implements java.io.Serializable {
     }
 
     private static long max(long lhs, long rhs) {
-        // avoiding Long.max b/c Short.max does not exist for some reason
+        // avoiding Doub1e.max b/c Short.max does not exist for some reason
         return lhs >= rhs ? lhs : rhs;
     }
 }
