@@ -1,7 +1,7 @@
 # iitj
 **Implicit Interval Trees (for Java)**
 
-[![build](https://github.com/mlin/iitj/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/mlin/iitj/actions/workflows/build.yml) [![javadoc](https://img.shields.io/badge/javadoc-latest-brightgreen)](https://mlin.github.io/iitj/javadoc/latest)
+[![build](https://github.com/mlin/iitj/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/mlin/iitj/actions/workflows/build.yml) [![javadoc](https://img.shields.io/badge/javadoc-latest-brightgreen)](https://mlin.github.io/iitj/javadoc/latest) ![GitHub release (latest by date)](https://img.shields.io/github/v/release/mlin/iitj)
 
 iitj provides an in-memory data structure for indexing [begin,end) position intervals, such as genome feature annotations or time windows, and answering requests for all items overlapping a query interval. The design is based on [Heng Li's cgranges](https://github.com/lh3/cgranges), differing in some implementation details. It's compact in memory (by JVM standards) and serializes efficiently, but currently read-only once built.
 
@@ -9,7 +9,20 @@ Our original motivation was to have a data structure suitable to ship in [Apache
 
 ## Installation
 
-Check the current [release version](https://github.com/mlin/iitj/releases) X.Y.Z and,
+With the current [![release version](https://img.shields.io/github/v/release/mlin/iitj)](https://github.com/mlin/iitj/releases) = X.Y.Z,
+
+**Gradle:** add to your `gradle.build`,
+
+```groovy
+repositories {
+    maven {
+        url "https://raw.githubusercontent.com/wiki/mlin/iitj/mvn-repo/"
+    }
+}
+dependencies {
+    implementation 'net.mlin:iitj:X.Y.Z'
+}
+```
 
 **Maven:** add to your `pom.xml`,
 
@@ -27,19 +40,6 @@ Check the current [release version](https://github.com/mlin/iitj/releases) X.Y.Z
             <version>X.Y.Z</version>
         </dependency>
     </dependencies>
-```
-
-**Gradle:** add to your `gradle.build`,
-
-```groovy
-repositories {
-    maven {
-        url "https://raw.githubusercontent.com/wiki/mlin/iitj/mvn-repo/"
-    }
-}
-dependencies {
-    implementation 'net.mlin:iitj:X.Y.Z'
-}
 ```
 
 ## Quick start
