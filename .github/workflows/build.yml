@@ -10,7 +10,7 @@ jobs:
       with:
         fetch-depth: 0
         submodules: recursive
-    - name: ktlint
+    - name: spotless
       run: gradle spotlessCheck
 
   test:

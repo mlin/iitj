@@ -263,8 +263,8 @@ public class LongIntervalTree implements java.io.Serializable {
      * @param queryEnd Query interval end position (exclusive). A stored interval whose begin
      *     position equals the query end position is considered abutting, but NOT overlapping the
      *     query, so would not be returned.
-     * @param callback Predicate function to be called with each query result; it may return true
-     *     to continue the query, or false to stop immediately.
+     * @param callback Predicate function to be called with each query result; it may return true to
+     *     continue the query, or false to stop immediately.
      */
     public void queryOverlap(long queryBeg, long queryEnd, Predicate<QueryResult> callback) {
         queryOverlapInternal(
@@ -309,8 +309,8 @@ public class LongIntervalTree implements java.io.Serializable {
      * @param queryEnd Query interval end position (exclusive). A stored interval whose begin
      *     position equals the query end position is considered abutting, but NOT overlapping the
      *     query, so would not be returned.
-     * @param callback Predicate function to be called with each query result ID; it may return
-     *     true to continue the query, or false to stop immediately.
+     * @param callback Predicate function to be called with each query result ID; it may return true
+     *     to continue the query, or false to stop immediately.
      */
     public void queryOverlapId(long queryBeg, long queryEnd, IntPredicate callback) {
         queryOverlapInternal(
