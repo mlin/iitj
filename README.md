@@ -7,6 +7,55 @@ Our original motivation was to have a data structure suitable to ship in [Apache
 
 ### Quick start
 
+Add entries like the following to your Maven `pom.xml`:
+
+```xml
+    <repositories>
+        <repository>
+            <id>iitj</id>
+            <url>https://raw.githubusercontent.com/wiki/mlin/iitj/mvn-repo/</url>
+        </repository>
+    </repositories>
+    <dependencies>
+        <dependency>
+            <groupId>net.mlin</groupId>
+            <artifactId>iitj</artifactId>
+            <version>X.Y.Z</version>
+        </dependency>
+    </dependencies>
+```
+
+where X.Y.Z is the desired [release](https://github.com/mlin/iitj/releases).
+
+Then import any of `net.mlin.iitj.{Double,Float,Integer,Long,Short}IntervalTree` according to the desired interval position type. The following example will use `IntegerIntervalTree`.
+
+```java
+import net.mlin.iitj.IntervalIntegerTree;
+
+IntegerIntervalTree.Builder builder = new IntegerIntervalTree.Builder();
+int id0 = builder.add(0, 23);   // id0 == 0
+int id1 = builder.add(12, 34);  // id1 == 1
+int id2 = builder.add(34, 56);  // id2 == 2
+IntegerIntervalTree it = builder.build();
+
+List<IntegerIntervalTree.QueryResult> hits = it.queryOverlap(22, 25);
+for (IntegerIntervalTree.QueryResult hit : hits) {
+    System.out.println(
+        String.join("\t", String.valueOf(hit.beg), String.valueOf(hit.end), String.valueOf(hit.id))
+    );
+}
+
+/*
+output:
+0       23      0
+12      34      1
+*/
+```
+
+All [beg, end) interval positions are *half-open*, with inclusive begin position and exclusive end position. Given a query interval [x,y), intervals [w,x) and [y,z) are abutting but *not* overlapping, so would not be returned by the overlap query. (See [Dijkstra's note](https://www.cs.utexas.edu/users/EWD/ewd08xx/EWD831.PDF) on this convention.)
+
+Use the interval IDs, reflecting the order in which they're added to the builder, to associate results with other data/objects if needed.
+
 ### Design notes
 
 **Data structure layout.** First please review the original design of [cgranges](https://github.com/lh3/cgranges); we have some [extra notes](https://github.com/mlin/iitii/blob/master/notes_on_cgranges.md) to help.
@@ -15,6 +64,6 @@ cgranges handles a few complications in the typical case that its implicit binar
 
 This solution isn't much simpler than cgranges in code, but it seems easier to explain conceptually.
 
-**Java/JVM specifics.** The implict tree's compactness would be somewhat defeated if we kept each interval boxed in its own JVM `Object`. Instead, we store each interval's essential coordinates in a primitive array (three position values per interval). We don't store any `Object` references, but we assign each interval an integer ID corresponding to its original insertion order. Then, only if needed, the caller can separately associate these IDs with other JVM objects. If the caller takes care to insert the intervals in sorted order (by begin then end), then we don't use any separate storage for the IDs. (Otherwise we store the permutation from the sorted order onto the insertion/ID order.)
+**Java/JVM specifics.** The implict tree's compactness would be somewhat defeated if we kept each interval boxed in its own JVM `Object`. Instead, we store each interval's essential coordinates in a primitive array (three position values per interval). We don't store any `Object` references, but we assign each interval an integer ID corresponding to its original insertion order. If the caller takes care to insert the intervals in sorted order (by begin then end), then we don't use any separate storage for the IDs. (Otherwise we store the permutation from the sorted order onto the insertion/ID order.)
 
 Lastly, due to [limitations of Java generics](https://www.infoworld.com/article/3639525/openjdk-proposals-would-bring-universal-generics-to-java.html), we provide separate classes for double/float/int/long/short interval position types. `DoubleIntervalTree.java` serves as the source template, from which we [generate](https://github.com/mlin/iitj/blob/main/generate.sh) the others by sed find/replace.

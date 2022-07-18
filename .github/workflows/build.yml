@@ -24,6 +24,9 @@ jobs:
         submodules: recursive
     - name: build & test
       run: gradle test
+    - name: check Java 8 targeting
+      run: |
+        javap -verbose build/classes/java/main/net/mlin/iitj/DoubleIntervalTree.class | grep 'major version: 52'
     - name: docs
       run: gradle docs
     - name: mvn-repo
