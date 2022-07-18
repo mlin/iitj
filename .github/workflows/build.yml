@@ -10,6 +10,8 @@ jobs:
       with:
         fetch-depth: 0
         submodules: recursive
+    - name: consistent generated code
+      run: ./generate.sh && (git status | grep 'working tree clean')
     - name: spotless
       run: gradle spotlessCheck
 
