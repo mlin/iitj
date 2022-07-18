@@ -7,7 +7,7 @@ While designed for general purposes, our original motivation was to use in [Apac
 
 ### Quick start
 
-### Implementation notes
+### Design notes
 
 **Data structure layout.** First please review the original design of [cgranges](https://github.com/lh3/cgranges); we have some [extra notes](https://github.com/mlin/iitii/blob/master/notes_on_cgranges.md) to help.
 
@@ -15,6 +15,6 @@ cgranges has a few complications to handle the typical case that its implicit bi
 
 The code for this solution isn't much simpler than cgranges, but it seems easier to explain conceptually.
 
-**Java/JVM specifics.** The implict tree's compactness would be somewhat defeated if we kept each interval boxed in its own JVM heap `Object`. Instead, we store each interval's essential coordinates in a primitive array (three position values per interval). We don't store any `Object` references, but we assign each interval an integer ID corresponding to its original insertion order. Then, only if needed, the caller can separately associate these IDs with other JVM objects. If the caller takes care to insert the intervals in sorted order (by begin then end), then we don't use any separate storage for the IDs. (Otherwise we store the permutation from the sorted order onto the insertion/ID order.)
+**Java/JVM specifics.** The implict tree's compactness would be somewhat defeated if we kept each interval boxed in its own JVM `Object`. Instead, we store each interval's essential coordinates in a primitive array (three position values per interval). We don't store any `Object` references, but we assign each interval an integer ID corresponding to its original insertion order. Then, only if needed, the caller can separately associate these IDs with other JVM objects. If the caller takes care to insert the intervals in sorted order (by begin then end), then we don't use any separate storage for the IDs. (Otherwise we store the permutation from the sorted order onto the insertion/ID order.)
 
 Lastly, due to [limitations of Java generics](https://www.infoworld.com/article/3639525/openjdk-proposals-would-bring-universal-generics-to-java.html), we provide separate classes for double/float/int/long/short interval position types. `DoubleIntervalTree.java` serves as the source template, from which we [generate](https://github.com/mlin/iitj/blob/main/generate.sh) the others by sed find/replace.
