@@ -4,7 +4,23 @@
  */
 
 plugins {
-  id "com.diffplug.gradle.spotless" version "4.5.1"
+  id "com.diffplug.spotless" version "6.8.0"
+  id "me.qoomon.git-versioning" version "6.2.0"
+  id "maven-publish"
+}
+
+version = '0.0.0-SNAPSHOT'
+gitVersioning.apply {
+    refs {
+        tag('v(?<version>.*)') {
+            version = '${ref.version}${dirty}'
+        }
+    }
+
+    // optional fallback configuration in case of no matching ref configuration
+    rev {
+        version = '${commit.timestamp.datetime}-${commit.short}${dirty}'
+    }
 }
 
 // Apply the java-library plugin to add support for Java Library
@@ -48,4 +64,22 @@ spotless {
 
 task docs(type: Javadoc) {
     source = sourceSets.main.allJava
+}
+
+publishing {
+    publications {
+        mvn(MavenPublication) {
+            groupId = 'net.mlin'
+            artifactId = 'iitj'
+
+            from components.java
+        }
+    }
+
+    repositories {
+        maven {
+            name = 'iitj'
+            url = layout.buildDirectory.dir("mvn-repo")
+        }
+    }
 }

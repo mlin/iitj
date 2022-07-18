@@ -11,13 +11,12 @@ import java.util.function.Predicate;
 /**
  * Data structure storing [double begin, double end) intervals and answering requests for those
  * overlapping a query interval. Each stored interval is associated with an integer equal to the
- * order in which it was added (zero-based).
- *
- * <p>The index is memory-efficient and serializable, but read-only once built.
+ * order in which it was added (zero-based). The index is compact in memory and serializes
+ * efficiently, but it's read-only once built.
  */
 public class DoubleIntervalTree implements java.io.Serializable {
 
-    /** Builder storing items to be stored in a DoubleIntervalTree */
+    /** Builder storing items to be indexed in a DoubleIntervalTree */
     public static class Builder {
         private int n;
         private double[] begs, ends;
@@ -340,7 +339,7 @@ public class DoubleIntervalTree implements java.io.Serializable {
     }
 
     /**
-     * Return any one ID of a stored interval overlapping the given interval.
+     * Query for any one ID of a stored interval overlapping the given interval.
      *
      * @param queryBeg Query interval begin position (inclusive)
      * @param queryEnd Query interval end position (exclusive). A stored interval whose begin
