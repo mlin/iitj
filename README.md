@@ -11,7 +11,7 @@ Our original motivation was to have a data structure suitable to ship in [Apache
 
 Check the current [release version](https://github.com/mlin/iitj/releases) X.Y.Z and,
 
-**Maven:** add to your `pom.xml`:
+**Maven:** add to your `pom.xml`,
 
 ```xml
     <repositories>
@@ -29,7 +29,7 @@ Check the current [release version](https://github.com/mlin/iitj/releases) X.Y.Z
     </dependencies>
 ```
 
-**Gradle:** add to your `gradle.build`:
+**Gradle:** add to your `gradle.build`,
 
 ```groovy
 repositories {
@@ -47,7 +47,7 @@ dependencies {
 Import any of `net.mlin.iitj.{Double,Float,Integer,Long,Short}IntervalTree` according to the desired interval position type. The following example will use `IntegerIntervalTree`.
 
 ```java
-import net.mlin.iitj.IntervalIntegerTree;
+import net.mlin.iitj.IntegerIntervalTree;
 
 IntegerIntervalTree.Builder builder = new IntegerIntervalTree.Builder();
 int id0 = builder.add(0, 23);   // id0 == 0
@@ -73,7 +73,7 @@ All [beg, end) interval positions are *half-open*, with inclusive begin position
 
 Use the interval IDs, reflecting the order in which they're added to the builder, to associate results with other data/objects if needed.
 
-## [API Javadoc](https://mlin.github.io/iitj/javadoc/latest)
+See [![javadoc](https://img.shields.io/badge/javadoc-latest-brightgreen)](https://mlin.github.io/iitj/javadoc/latest) for other available query methods.
 
 ## Design notes
 
