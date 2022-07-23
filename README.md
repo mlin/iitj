@@ -79,9 +79,9 @@ See [![javadoc](https://img.shields.io/badge/javadoc-latest-brightgreen)](https:
 
 **Data structure layout.** First please review the original design of [cgranges](https://github.com/lh3/cgranges); we have some [extra notes](https://github.com/mlin/iitii/blob/master/notes_on_cgranges.md) to help.
 
-cgranges handles a few complications in the typical case that its implicit binary tree isn't full & complete (that is, the stored item count *N* isn't exactly a power of two minus one). Instead of treating the entire sorted array as one incomplete tree, we decompose it into a concatenation of full & complete trees, as suggested by [Brodal, Fagerberg & Jacob (2001) §3.3](https://tidsskrift.dk/brics/article/download/21696/19132). Write *N* as a sum of powers of two, e.g. *N* = 12345 = 8192 + 4096 + 32 + 16 + 8 + 1, then interpret each corresponding slice of the array as a full & complete search tree (plus one extra "index node").
+cgranges handles a few complications in the typical case that its implicit binary tree isn't full & complete (that is, the sorted interval array length *N* isn't exactly a power of two minus one). Instead of treating the whole array as one incomplete tree, we view it as a series of full & complete trees, as suggested by [Brodal, Fagerberg & Jacob (2001) §3.3](https://tidsskrift.dk/brics/article/download/21696/19132). Write *N* as a sum of powers of two, e.g. *N* = 12345 = 8192 + 4096 + 32 + 16 + 8 + 1, then interpret each corresponding slice of the array as a full & complete search tree (plus one extra "index node").
 
-Although the code isn't much simpler than cgranges, this solution seems easier to explain conceptually.
+Although the code for this solution isn't really simpler than cgranges, it seems easier to explain conceptually.
 
 **Java/JVM specifics.** The implict tree's compactness would be somewhat defeated if we kept each interval boxed in its own JVM `Object`. Instead, we store essential coordinates for all the intervals in a few primitive arrays. We don't store any `Object` references, but we assign each interval an integer ID corresponding to its original insertion order. If the caller takes care to insert the intervals in sorted order (by begin then end), then we don't use any separate storage for the IDs. (Otherwise we store the permutation from the sorted order onto the insertion/ID order.)
 
