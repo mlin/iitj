@@ -79,7 +79,7 @@ See [![javadoc](https://img.shields.io/badge/javadoc-latest-brightgreen)](https:
 
 **Data structure layout.** First please review the original design of [cgranges](https://github.com/lh3/cgranges); we have some [extra notes](https://github.com/mlin/iitii/blob/master/notes_on_cgranges.md) to help.
 
-cgranges handles a few complications in the typical case that its implicit binary tree isn't full & complete (that is, the sorted interval array length *N* isn't exactly a power of two minus one). Instead of treating the whole array as one incomplete tree, we view it as a series of full & complete trees, as suggested by [Brodal, Fagerberg & Jacob (2001) §3.3](https://tidsskrift.dk/brics/article/download/21696/19132). Write *N* as a sum of powers of two, e.g. *N* = 12345 = 8192 + 4096 + 32 + 16 + 8 + 1, then interpret each corresponding slice of the array as a full & complete search tree (plus one extra "index node").
+cgranges handles a few complications in the typical case that its implicit binary tree isn't ["perfect"](https://xlinux.nist.gov/dads/HTML/perfectBinaryTree.html) (that is, the sorted interval array length *N* isn't exactly a power of two minus one). Instead of treating the whole array as one partial tree, we view it as a series of perfect trees, as suggested by [Brodal, Fagerberg & Jacob (2001) §3.3](https://tidsskrift.dk/brics/article/download/21696/19132). Write *N* as a sum of powers of two, e.g. *N* = 12345 = 8192 + 4096 + 32 + 16 + 8 + 1, then interpret each corresponding slice of the array as an implicit perfect tree (plus one extra "index node").
 
 Although the code for this solution isn't really simpler than cgranges, it seems easier to explain conceptually.
 

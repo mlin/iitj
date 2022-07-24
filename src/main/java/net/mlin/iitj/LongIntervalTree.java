@@ -112,8 +112,8 @@ public class LongIntervalTree implements java.io.Serializable {
     // Write N as a sum of powers of two, e.g. N = 12345 = 8192 + 4096 + 32 + 16 + 8 + 1, and
     // consider the corresponding slices of the interval array. The leftmost item in each slice is
     // an "index node", and the 2^p-1 remaining items (for some 0<=p<32) are an implicit binary
-    // search tree as in Li's cgranges. Our trees are full & complete by construction, avoiding
-    // some complications cgranges handles when that's not so.
+    // search tree as in Li's cgranges. Our trees are "perfect" by construction, avoiding some
+    // complications cgranges handles when that's not so.
     // indexNodes stores the row numbers of the index nodes, in ascending order. The first element
     // is always zero and a last element equal to N is appended as a convenience. The difference
     // between any two adjacent elements is one of the powers of two.
