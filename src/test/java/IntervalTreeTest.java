@@ -56,10 +56,13 @@ public class IntervalTreeTest {
                 existing = control.find(beg, end - 1);
             }
             existing.getValue().add(id);
-            if (beg % 10 == 3) {
+            if (beg % 50 == 42) {
                 // spike in duplicates
-                id = builder.add(beg, end);
-                existing.getValue().add(id);
+                int ndup = geom.sample();
+                for (int dup = 0; dup < ndup; ++dup) {
+                    id = builder.add(beg, end);
+                    existing.getValue().add(id);
+                }
             }
         }
 
@@ -106,6 +109,22 @@ public class IntervalTreeTest {
                     (new IntegerIntervalTree.QueryResult(queryBeg, queryEnd, -1)).toString(),
                     controlHits,
                     hits);
+        }
+
+        // test exact query
+        for (Iterator<IntervalTree.Node<ArrayList<Integer>>> it =
+                            control.iterator();
+                    it.hasNext(); ) {
+            IntervalTree.Node<ArrayList<Integer>> node = it.next();
+            ArrayList<Integer> results = new ArrayList<Integer>();
+            expt.queryExactId(
+                node.getStart(),
+                node.getEnd() + 1,
+                i -> {
+                    results.add(i);
+                    return true;
+                });
+            assertEquals(node.getValue(), results);
         }
     }
 }
