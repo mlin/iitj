@@ -112,18 +112,17 @@ public class IntervalTreeTest {
         }
 
         // test exact query
-        for (Iterator<IntervalTree.Node<ArrayList<Integer>>> it =
-                            control.iterator();
-                    it.hasNext(); ) {
+        for (Iterator<IntervalTree.Node<ArrayList<Integer>>> it = control.iterator();
+                it.hasNext(); ) {
             IntervalTree.Node<ArrayList<Integer>> node = it.next();
             ArrayList<Integer> results = new ArrayList<Integer>();
             expt.queryExactId(
-                node.getStart(),
-                node.getEnd() + 1,
-                i -> {
-                    results.add(i);
-                    return true;
-                });
+                    node.getStart(),
+                    node.getEnd() + 1,
+                    i -> {
+                        results.add(i);
+                        return true;
+                    });
             assertEquals(node.getValue(), results);
         }
     }

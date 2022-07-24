@@ -225,8 +225,8 @@ public class ShortIntervalTree implements java.io.Serializable {
         return begs.length;
     }
 
-    /** Result from a query, an interval and its ID as returned by
-     *      {@link Builder#add Builder.add()}
+    /**
+     * Result from a query, an interval and its ID as returned by {@link Builder#add Builder.add()}
      */
     public static class QueryResult {
         public final short beg;
@@ -263,9 +263,9 @@ public class ShortIntervalTree implements java.io.Serializable {
      * Query for all stored intervals overlapping the given interval.
      *
      * @param queryBeg Query interval begin position (inclusive)
-     * @param queryEnd Query interval end position (exclusive). Given a query interval [x,y),
-     *     stored intervals [w,x) and [y,z) are abutting, but NOT overlapping the query, so would
-     *     not be returned.
+     * @param queryEnd Query interval end position (exclusive). Given a query interval [x,y), stored
+     *     intervals [w,x) and [y,z) are abutting, but NOT overlapping the query, so would not be
+     *     returned.
      * @param callback Predicate function to be called with each query result; it may return true to
      *     continue the query, or false to stop immediately.
      */
@@ -283,11 +283,11 @@ public class ShortIntervalTree implements java.io.Serializable {
      * Query for all stored intervals overlapping the given interval.
      *
      * @param queryBeg Query interval begin position (inclusive)
-     * @param queryEnd Query interval end position (exclusive). Given a query interval [x,y),
-     *     stored intervals [w,x) and [y,z) are abutting, but NOT overlapping the query, so would
-     *     not be returned.
-     * @return Materialized list of {@link QueryResult QueryResult} (not preferred for large
-     *     result sets)
+     * @param queryEnd Query interval end position (exclusive). Given a query interval [x,y), stored
+     *     intervals [w,x) and [y,z) are abutting, but NOT overlapping the query, so would not be
+     *     returned.
+     * @return Materialized list of {@link QueryResult QueryResult} (not preferred for large result
+     *     sets)
      */
     public java.util.List<QueryResult> queryOverlap(short queryBeg, short queryEnd) {
         ArrayList<QueryResult> results = new ArrayList<QueryResult>();
@@ -307,9 +307,9 @@ public class ShortIntervalTree implements java.io.Serializable {
      * is reduced by avoiding allocation of {@link QueryResult QueryResult} objects.
      *
      * @param queryBeg Query interval begin position (inclusive)
-     * @param queryEnd Query interval end position (exclusive). Given a query interval [x,y),
-     *     stored intervals [w,x) and [y,z) are abutting, but NOT overlapping the query, so would
-     *     not be returned.
+     * @param queryEnd Query interval end position (exclusive). Given a query interval [x,y), stored
+     *     intervals [w,x) and [y,z) are abutting, but NOT overlapping the query, so would not be
+     *     returned.
      * @param callback Predicate function to be called with each query result ID; it may return true
      *     to continue the query, or false to stop immediately.
      */
@@ -322,9 +322,9 @@ public class ShortIntervalTree implements java.io.Serializable {
      * Query for any one stored interval overlapping the given interval.
      *
      * @param queryBeg Query interval begin position (inclusive)
-     * @param queryEnd Query interval end position (exclusive). Given a query interval [x,y),
-     *     stored intervals [w,x) and [y,z) are abutting, but NOT overlapping the query, so would
-     *     not be returned.
+     * @param queryEnd Query interval end position (exclusive). Given a query interval [x,y), stored
+     *     intervals [w,x) and [y,z) are abutting, but NOT overlapping the query, so would not be
+     *     returned.
      * @return null if there are no overlapping intervals stored.
      */
     public QueryResult queryAnyOverlap(short queryBeg, short queryEnd) {
@@ -343,9 +343,9 @@ public class ShortIntervalTree implements java.io.Serializable {
      * Query for any one ID of a stored interval overlapping the given interval.
      *
      * @param queryBeg Query interval begin position (inclusive)
-     * @param queryEnd Query interval end position (exclusive). Given a query interval [x,y),
-     *     stored intervals [w,x) and [y,z) are abutting, but NOT overlapping the query, so would
-     *     not be returned.
+     * @param queryEnd Query interval end position (exclusive). Given a query interval [x,y), stored
+     *     intervals [w,x) and [y,z) are abutting, but NOT overlapping the query, so would not be
+     *     returned.
      * @return -1 if there are no overlapping intervals stored.
      */
     public int queryAnyOverlapId(short queryBeg, short queryEnd) {
@@ -364,9 +364,9 @@ public class ShortIntervalTree implements java.io.Serializable {
      * Query whether there exists any stored interval overlapping the given interval.
      *
      * @param queryBeg Query interval begin position (inclusive)
-     * @param queryEnd Query interval end position (exclusive). Given a query interval [x,y),
-     *     stored intervals [w,x) and [y,z) are abutting, but NOT overlapping the query, so would
-     *     not be returned.
+     * @param queryEnd Query interval end position (exclusive). Given a query interval [x,y), stored
+     *     intervals [w,x) and [y,z) are abutting, but NOT overlapping the query, so would not be
+     *     returned.
      */
     public boolean queryOverlapExists(short queryBeg, short queryEnd) {
         return queryAnyOverlapId(queryBeg, queryEnd) >= 0;
@@ -381,7 +381,8 @@ public class ShortIntervalTree implements java.io.Serializable {
     public void queryExactId(short queryBeg, short queryEnd, IntPredicate callback) {
         int p = java.util.Arrays.binarySearch(begs, queryBeg);
         if (p >= 0) {
-            for (; p > 0 && begs[p-1] == queryBeg && ends[p-1] >= queryEnd; --p);
+            for (; p > 0 && begs[p - 1] == queryBeg && ends[p - 1] >= queryEnd; --p)
+                ;
             for (; p < begs.length && begs[p] == queryBeg && ends[p] <= queryEnd; ++p) {
                 if (ends[p] == queryEnd && !callback.test(permute != null ? permute[p] : p)) {
                     return;
