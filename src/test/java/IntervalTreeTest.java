@@ -60,7 +60,13 @@ public class IntervalTreeTest {
                 // spike in duplicates
                 int ndup = geom.sample();
                 for (int dup = 0; dup < ndup; ++dup) {
-                    id = builder.add(beg, end);
+                    final int end2 = end + (i % 2 > 0 ? geom.sample() + 1 : 0);
+                    id = builder.add(beg, end2);
+                    existing = control.find(beg, end2 - 1);
+                    if (existing == null) {
+                        control.put(beg, end2 - 1, new ArrayList<Integer>());
+                        existing = control.find(beg, end2 - 1);
+                    }
                     existing.getValue().add(id);
                 }
             }
