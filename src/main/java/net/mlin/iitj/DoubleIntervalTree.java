@@ -95,7 +95,7 @@ public class DoubleIntervalTree implements java.io.Serializable {
                 throw new UnsupportedOperationException("DoubleIntervalTree capacity overflow");
             }
             assert ends.length == capacity;
-            capacity = (capacity * 3L) / 2L;
+            capacity = (capacity * 3L) / 2L + 1L;
             if (capacity > Integer.MAX_VALUE) {
                 capacity = Integer.MAX_VALUE;
             }
