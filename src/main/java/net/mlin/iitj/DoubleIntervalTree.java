@@ -5,6 +5,7 @@
 package net.mlin.iitj;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.function.IntPredicate;
 import java.util.function.Predicate;
 
@@ -19,11 +20,20 @@ public class DoubleIntervalTree implements java.io.Serializable {
     /** Builder storing items to be indexed in a DoubleIntervalTree */
     public static class Builder {
         private int n;
+        private final int initialCapacity;
         private double[] begs, ends;
         private boolean sorted;
 
-        public Builder() {
+        public Builder(int initialCapacity) {
+            if (initialCapacity <= 0) {
+                throw new IllegalArgumentException();
+            }
+            this.initialCapacity = initialCapacity;
             reset();
+        }
+
+        public Builder() {
+            this(16);
         }
 
         /**
@@ -74,8 +84,8 @@ public class DoubleIntervalTree implements java.io.Serializable {
 
         private void reset() {
             n = 0;
-            begs = new double[16];
-            ends = new double[begs.length];
+            begs = new double[initialCapacity];
+            ends = new double[initialCapacity];
             sorted = true;
         }
 
@@ -89,16 +99,8 @@ public class DoubleIntervalTree implements java.io.Serializable {
             if (capacity > Integer.MAX_VALUE) {
                 capacity = Integer.MAX_VALUE;
             }
-            double[] tmp = new double[(int) capacity];
-            for (int i = 0; i < n; i++) {
-                tmp[i] = begs[i];
-            }
-            begs = tmp;
-            tmp = new double[(int) capacity];
-            for (int i = 0; i < n; i++) {
-                tmp[i] = ends[i];
-            }
-            ends = tmp;
+            begs = Arrays.copyOf(begs, (int) capacity);
+            ends = Arrays.copyOf(ends, (int) capacity);
         }
     }
 
@@ -114,9 +116,9 @@ public class DoubleIntervalTree implements java.io.Serializable {
     // an "index node", and the 2^p-1 remaining items (for some 0<=p<32) are an implicit binary
     // search tree as in Li's cgranges. Our trees are "perfect" by construction, avoiding some
     // complications cgranges handles when that's not so.
-    // indexNodes stores the row numbers of the index nodes, in ascending order. The first element
-    // is always zero and a last element equal to N is appended as a convenience. The difference
-    // between any two adjacent elements is one of the powers of two.
+    // indexNodes stores the array positions of the index nodes, in ascending order. The first
+    // element is always zero and a last element equal to N is appended as a convenience. The
+    // difference between any two adjacent elements is one of the powers of two.
     private final int[] indexNodes;
     // If the intervals weren't originally provided to the builder in the same sorted order, then
     // permute stores their original IDs. Otherwise permute is null and the IDs are the indexes
@@ -125,9 +127,6 @@ public class DoubleIntervalTree implements java.io.Serializable {
 
     private DoubleIntervalTree(Builder builder) {
         final int n = builder.n;
-        begs = new double[n];
-        ends = new double[n];
-        maxEnds = new double[n];
 
         // compute sorting permutation of builder intervals, if needed, then copy the data in
         // https://stackoverflow.com/a/25778783
@@ -146,15 +145,19 @@ public class DoubleIntervalTree implements java.io.Serializable {
                             .mapToInt(value -> value.intValue())
                             .toArray();
 
+            begs = new double[n];
+            ends = new double[n];
             for (int i = 0; i < builder.n; i++) {
                 begs[i] = builder.begs[permute[i]];
                 ends[i] = builder.ends[permute[i]];
             }
+        } else if (builder.n != builder.begs.length) {
+            begs = Arrays.copyOf(builder.begs, builder.n);
+            ends = Arrays.copyOf(builder.ends, builder.n);
+            permute = null;
         } else {
-            for (int i = 0; i < builder.n; i++) {
-                begs[i] = builder.begs[i];
-                ends[i] = builder.ends[i];
-            }
+            begs = builder.begs;
+            ends = builder.ends;
             permute = null;
         }
         builder.reset();
@@ -180,6 +183,7 @@ public class DoubleIntervalTree implements java.io.Serializable {
 
         // Compute maxEnds througout each implict tree; for the index nodes themselves, the maxEnd
         // is the greater of its own end position and the maxEnd of the subsequent tree.
+        maxEnds = new double[n];
         for (int which_i = 0; which_i < indexNodes.length - 1; which_i++) {
             int i = indexNodes[which_i];
             int n_i = indexNodes[which_i + 1] - i;
