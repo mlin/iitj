@@ -181,7 +181,7 @@ public class DoubleIntervalTree implements java.io.Serializable {
         for (int which_i = 0; which_i < indexNodes.length - 1; which_i++) {
             int i = indexNodes[which_i];
             int n_i = indexNodes[which_i + 1] - i;
-            assert n_i > 0 && Integer.bitCount(n_i) == 1;
+            assert Integer.bitCount(n_i) == 1;
             if (n_i == 1) {
                 maxEnds[i] = ends[i];
             } else {

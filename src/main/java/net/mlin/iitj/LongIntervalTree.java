@@ -163,23 +163,17 @@ public class LongIntervalTree implements java.io.Serializable {
         builder.reset();
 
         // compute index nodes
-        int[] indexNodesTmp = new int[31];
-        indexNodesTmp[0] = 0;
-        int nIndexNodes = 1;
-
+        int nIndexNodes = Integer.bitCount(n) + 1;
+        indexNodes = new int[nIndexNodes];
+        indexNodes[0] = 0;
         int nRem = n;
-        while (nRem > 0) { // for each binary one digit in N
+        for (int i = 1; i < nIndexNodes; i++) {
             int p2 = Integer.highestOneBit(nRem);
-            assert p2 > 0 && Integer.bitCount(p2) == 1;
-            indexNodesTmp[nIndexNodes] = p2 + indexNodesTmp[nIndexNodes - 1];
-            nIndexNodes++;
+            assert Integer.bitCount(p2) == 1;
+            indexNodes[i] = p2 + indexNodes[i - 1];
             nRem &= ~p2;
         }
-        indexNodes = new int[nIndexNodes];
-        for (int i = 0; i < nIndexNodes; i++) {
-            indexNodes[i] = indexNodesTmp[i];
-        }
-        assert indexNodes[nIndexNodes - 1] == n;
+        assert nRem == 0 && indexNodes[nIndexNodes - 1] == n;
 
         // Compute maxEnds througout each implict tree; for the index nodes themselves, the maxEnd
         // is the greater of its own end position and the maxEnd of the subsequent tree.
@@ -187,7 +181,7 @@ public class LongIntervalTree implements java.io.Serializable {
         for (int which_i = 0; which_i < indexNodes.length - 1; which_i++) {
             int i = indexNodes[which_i];
             int n_i = indexNodes[which_i + 1] - i;
-            assert n_i > 0 && Integer.bitCount(n_i) == 1;
+            assert Integer.bitCount(n_i) == 1;
             if (n_i == 1) {
                 maxEnds[i] = ends[i];
             } else {
