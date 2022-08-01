@@ -472,16 +472,12 @@ public class ShortIntervalTree implements java.io.Serializable {
         final int i = ofs + node;
         if (maxEnds[i] > queryBeg) { // subtree rooted here may have relevant item(s)
             if (lvl <= 2) {
-                // we're down to a subtree of <= 7 items that are contiguous in the array, so let's
-                // just scan through them. (cgranges also has this optimization)
-                final int scanL = nodeLeftmostChild(node, lvl);
-                final int scanR = nodeRightmostChild(node, lvl);
-                for (int s = scanL; s <= scanR; s++) {
-                    final int j = ofs + s;
-                    if (begs[j] < queryEnd && ends[j] > queryBeg) {
-                        if (!callback.test(j)) {
-                            return false;
-                        }
+                // we're down to a subtree of <= 7 items, so just scan them left-to-right
+                final int scanL = ofs + nodeLeftmostChild(node, lvl);
+                final int scanR = ofs + nodeRightmostChild(node, lvl);
+                for (int j = scanL; j <= scanR && begs[j] < queryEnd; j++) {
+                    if (ends[j] > queryBeg && !callback.test(j)) {
+                        return false;
                     }
                 }
             } else {
