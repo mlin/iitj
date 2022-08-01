@@ -469,8 +469,23 @@ public class LongIntervalTree implements java.io.Serializable {
 
     private boolean recurseQuery(
             long queryBeg, long queryEnd, int ofs, int node, int lvl, IntPredicate callback) {
-        // TODO: unroll traversal of bottom few levels
-        int i = ofs + node;
+        if (lvl <= 2) {
+            // we're down to a subtree of <= 7 intervals, so let's just scan them one-by-one.
+            // (cgranges also has this optimization)
+            final int scanBeg = nodeLeftmostChild(node, lvl);
+            final int scanEnd = nodeRightmostChild(node, lvl);
+            for (int s = scanBeg; s <= scanEnd; s++) {
+                final int i = ofs + s;
+                if (begs[i] < queryEnd && ends[i] > queryBeg) {
+                    if (!callback.test(i)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        final int i = ofs + node;
         if (maxEnds[i] > queryBeg) { // subtree rooted here may have relevant item(s)
             if (lvl > 0) { // search left subtree
                 if (!recurseQuery(
@@ -518,8 +533,16 @@ public class LongIntervalTree implements java.io.Serializable {
         return node - (1 << (lvl - 1));
     }
 
+    private static int nodeLeftmostChild(int node, int lvl) {
+        return node - (1 << lvl) + 1;
+    }
+
     private static int nodeRightChild(int node, int lvl) {
         return node + (1 << (lvl - 1));
+    }
+
+    private static int nodeRightmostChild(int node, int lvl) {
+        return node + (1 << lvl) - 1;
     }
 
     private static long max(long lhs, long rhs) {
