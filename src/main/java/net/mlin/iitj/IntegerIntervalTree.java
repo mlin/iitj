@@ -469,29 +469,28 @@ public class IntegerIntervalTree implements java.io.Serializable {
 
     private boolean recurseQuery(
             int queryBeg, int queryEnd, int ofs, int node, int lvl, IntPredicate callback) {
-        if (lvl <= 2) {
-            // we're down to a subtree of <= 7 intervals, so let's just scan them one-by-one.
-            // (cgranges also has this optimization)
-            final int scanBeg = nodeLeftmostChild(node, lvl);
-            final int scanEnd = nodeRightmostChild(node, lvl);
-            for (int s = scanBeg; s <= scanEnd; s++) {
-                final int i = ofs + s;
-                if (begs[i] < queryEnd && ends[i] > queryBeg) {
-                    if (!callback.test(i)) {
-                        return false;
-                    }
-                }
-            }
-            return true;
-        }
-
         final int i = ofs + node;
         if (maxEnds[i] > queryBeg) { // subtree rooted here may have relevant item(s)
-            if (lvl > 0) { // search left subtree
-                if (!recurseQuery(
-                        queryBeg, queryEnd, ofs, nodeLeftChild(node, lvl), lvl - 1, callback)) {
-                    return false;
+            if (lvl <= 2) {
+                // we're down to a subtree of <= 7 items that are contiguous in the array, so let's
+                // just scan through them. (cgranges also has this optimization)
+                final int scanBeg = nodeLeftmostChild(node, lvl);
+                final int scanEnd = nodeRightmostChild(node, lvl);
+                for (int s = scanBeg; s <= scanEnd; s++) {
+                    final int j = ofs + s;
+                    if (begs[j] < queryEnd && ends[j] > queryBeg) {
+                        if (!callback.test(j)) {
+                            return false;
+                        }
+                    }
                 }
+                return true;
+            }
+
+            // textbook tree search
+            if (!recurseQuery( // search left subtree
+                    queryBeg, queryEnd, ofs, nodeLeftChild(node, lvl), lvl - 1, callback)) {
+                return false;
             }
             if (begs[i] < queryEnd) { // root or right subtree may include relevant item(s)
                 if (ends[i] > queryBeg) { // current root overlaps
@@ -499,16 +498,9 @@ public class IntegerIntervalTree implements java.io.Serializable {
                         return false;
                     }
                 }
-                if (lvl > 0) { // search right subtree
-                    if (!recurseQuery(
-                            queryBeg,
-                            queryEnd,
-                            ofs,
-                            nodeRightChild(node, lvl),
-                            lvl - 1,
-                            callback)) {
-                        return false;
-                    }
+                if (!recurseQuery( // search right subtree
+                        queryBeg, queryEnd, ofs, nodeRightChild(node, lvl), lvl - 1, callback)) {
+                    return false;
                 }
             }
         }
