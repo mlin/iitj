@@ -474,9 +474,9 @@ public class ShortIntervalTree implements java.io.Serializable {
             if (lvl <= 2) {
                 // we're down to a subtree of <= 7 items that are contiguous in the array, so let's
                 // just scan through them. (cgranges also has this optimization)
-                final int scanBeg = nodeLeftmostChild(node, lvl);
-                final int scanEnd = nodeRightmostChild(node, lvl);
-                for (int s = scanBeg; s <= scanEnd; s++) {
+                final int scanL = nodeLeftmostChild(node, lvl);
+                final int scanR = nodeRightmostChild(node, lvl);
+                for (int s = scanL; s <= scanR; s++) {
                     final int j = ofs + s;
                     if (begs[j] < queryEnd && ends[j] > queryBeg) {
                         if (!callback.test(j)) {
@@ -484,23 +484,27 @@ public class ShortIntervalTree implements java.io.Serializable {
                         }
                     }
                 }
-                return true;
-            }
-
-            // textbook tree search
-            if (!recurseQuery( // search left subtree
-                    queryBeg, queryEnd, ofs, nodeLeftChild(node, lvl), lvl - 1, callback)) {
-                return false;
-            }
-            if (begs[i] < queryEnd) { // root or right subtree may include relevant item(s)
-                if (ends[i] > queryBeg) { // current root overlaps
-                    if (!callback.test(i)) {
+            } else {
+                // textbook tree search
+                if (!recurseQuery( // search left subtree
+                        queryBeg, queryEnd, ofs, nodeLeftChild(node, lvl), lvl - 1, callback)) {
+                    return false;
+                }
+                if (begs[i] < queryEnd) { // root or right subtree may include relevant item(s)
+                    if (ends[i] > queryBeg) { // current root overlaps
+                        if (!callback.test(i)) {
+                            return false;
+                        }
+                    }
+                    if (!recurseQuery( // search right subtree
+                            queryBeg,
+                            queryEnd,
+                            ofs,
+                            nodeRightChild(node, lvl),
+                            lvl - 1,
+                            callback)) {
                         return false;
                     }
-                }
-                if (!recurseQuery( // search right subtree
-                        queryBeg, queryEnd, ofs, nodeRightChild(node, lvl), lvl - 1, callback)) {
-                    return false;
                 }
             }
         }
