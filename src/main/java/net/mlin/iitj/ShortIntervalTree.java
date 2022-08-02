@@ -471,17 +471,7 @@ public class ShortIntervalTree implements java.io.Serializable {
             short queryBeg, short queryEnd, int ofs, int node, int lvl, IntPredicate callback) {
         final int i = ofs + node;
         if (maxEnds[i] > queryBeg) { // subtree rooted here may have relevant item(s)
-            if (lvl <= 2) {
-                // we're down to a subtree of <= 7 items, so just scan them left-to-right
-                final int scanL = ofs + nodeLeftmostChild(node, lvl);
-                final int scanR = ofs + nodeRightmostChild(node, lvl);
-                for (int j = scanL; j <= scanR && begs[j] < queryEnd; j++) {
-                    if (ends[j] > queryBeg && !callback.test(j)) {
-                        return false;
-                    }
-                }
-            } else {
-                // textbook tree search
+            if (lvl > 2) {
                 if (!recurseQuery( // search left subtree
                         queryBeg, queryEnd, ofs, nodeLeftChild(node, lvl), lvl - 1, callback)) {
                     return false;
@@ -499,6 +489,15 @@ public class ShortIntervalTree implements java.io.Serializable {
                             nodeRightChild(node, lvl),
                             lvl - 1,
                             callback)) {
+                        return false;
+                    }
+                }
+            } else {
+                // lvl <= 2: once we get down to a subtree of <= 7 items, just scan left-to-right
+                final int scanL = ofs + nodeLeftmostChild(node, lvl);
+                final int scanR = ofs + nodeRightmostChild(node, lvl);
+                for (int j = scanL; j <= scanR && begs[j] < queryEnd; ++j) {
+                    if (ends[j] > queryBeg && !callback.test(j)) {
                         return false;
                     }
                 }
