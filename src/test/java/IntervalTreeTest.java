@@ -31,12 +31,14 @@ public class IntervalTreeTest {
         JDKRandomGenerator rng = new JDKRandomGenerator();
         rng.setSeed(42);
         UniformIntegerDistribution unif = new UniformIntegerDistribution(rng, 1, size);
+        long totalHits = 0;
         for (int i = 0; i < size; i++) {
-            RandomTestN(unif.sample());
+            totalHits += RandomTestN(unif.sample());
         }
+        System.out.println(totalHits);
     }
 
-    private void RandomTestN(final int n) {
+    private long RandomTestN(final int n) {
         JDKRandomGenerator rng = new JDKRandomGenerator();
         rng.setSeed(42);
         GeometricDistribution geom = new GeometricDistribution(rng, 0.05);
@@ -90,10 +92,13 @@ public class IntervalTreeTest {
         }
         expt.validate();
 
-        // run queries and test equivalence
+        // run queries and test equivalence. place extra focus on the far right of the tree, since
+        // this is where most of the corner cases arise
         UniformIntegerDistribution unif = new UniformIntegerDistribution(rng, 0 - 5 * n, 5 * n);
+        UniformIntegerDistribution unif2 = new UniformIntegerDistribution(rng, 5 * n - 256, 5 * n);
+        long totalHits = 0;
         for (int i = 0; i < n; i++) {
-            int queryBeg = unif.sample();
+            int queryBeg = (i % 4 == 1) ? unif.sample() : unif2.sample();
             int queryEnd = queryBeg + geom.sample() + 1;
 
             ArrayList<IntegerIntervalTree.QueryResult> controlHits =
@@ -111,10 +116,8 @@ public class IntervalTreeTest {
 
             assertEquals(expt.queryOverlapExists(queryBeg, queryEnd), !controlHits.isEmpty());
             List<IntegerIntervalTree.QueryResult> hits = expt.queryOverlap(queryBeg, queryEnd);
-            assertEquals(
-                    (new IntegerIntervalTree.QueryResult(queryBeg, queryEnd, -1)).toString(),
-                    controlHits,
-                    hits);
+            assertEquals(controlHits, hits);
+            totalHits += hits.size();
         }
 
         // test exact query
@@ -131,5 +134,7 @@ public class IntervalTreeTest {
                     });
             assertEquals(node.getValue(), results);
         }
+
+        return totalHits;
     }
 }
